@@ -1,0 +1,1 @@
+Download ch_ppocr_mobile_v2.0_cls_infer pre-trained model and unzip it to this directory.

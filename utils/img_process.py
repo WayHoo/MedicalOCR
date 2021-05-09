@@ -18,7 +18,7 @@ def auto_canny(image, sigma=0.33):
 	lower = int(max(0, (1.0 - sigma) * mid))
 	upper = int(min(255, (1.0 + sigma) * mid))
 	edges = cv2.Canny(gray, lower, upper, apertureSize=3)  # apertureSize参数默认其实就是3
-	cv2.imwrite(os.path.join("../post_process_results/", "edges.jpg"), edges)
+	cv2.imwrite(os.path.join("../output/post_process_results/", "edges.jpg"), edges)
 	return edges
 
 
@@ -40,7 +40,7 @@ def hough_p_line_detect(image):
 		if length >= 0.1 * min_w_h:
 			x1, y1, x2, y2 = line[0]
 			cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 2, cv2.LINE_AA)
-	cv2.imwrite(os.path.join("../post_process_results/", "hough_p_line.jpg"), image)
+	cv2.imwrite(os.path.join("../output/post_process_results/", "hough_p_line.jpg"), image)
 
 
 def fld_line_detect(image):
@@ -80,7 +80,7 @@ def fld_line_detect(image):
 		# 	break
 
 	# 绘制检测结果
-	cv2.imwrite(os.path.join("../post_process_results/", "fld_line.jpg"), image)
+	cv2.imwrite(os.path.join("../output/post_process_results/", "fld_line.jpg"), image)
 
 
 if __name__ == "__main__":

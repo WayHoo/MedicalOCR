@@ -199,13 +199,13 @@ def main(args):
                 drop_score=drop_score,
                 font_path=font_path,
                 f_a_b=(a, b))
-            draw_img_save = "./inference_results/"
+            draw_img_save = "./output/inference_results/"
             if not os.path.exists(draw_img_save):
                 os.makedirs(draw_img_save)
             cv2.imwrite(
                 os.path.join(draw_img_save, os.path.basename(image_file)),
                 draw_img[:, :, ::-1])
-            # post_process_img_save = "./post_process_results/"
+            # post_process_img_save = "./output/post_process_results/"
             # if not os.path.exists(post_process_img_save):
             #     os.makedirs(post_process_img_save)
             # cv2.imwrite(

@@ -84,8 +84,8 @@ def fld_line_detect(image):
 
 
 if __name__ == "__main__":
-	src = cv2.imread(r"../doc/imgs/check_report_06.jpg")
+	src = cv2.imread(r"../doc/imgs/check_report_12.jpg")
 	print("image shape =", src.shape)
 	# hough_p_line_detect(src.copy())
 	auto_canny(src)
-	fld_line_detect(src.copy())
+	# fld_line_detect(src.copy())

@@ -1,1 +1,0 @@
-Download ch_ppocr_server_v2.0_rec_infer pre-trained model and unzip it to this directory.

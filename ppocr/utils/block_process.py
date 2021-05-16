@@ -19,19 +19,10 @@ def calc_block_angle(dt_boxes, rec_res):
     i = -1
     for box in dt_boxes:
         i += 1
-        x1, x2 = (box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0
-        y1, y2 = (box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0
-        theta = math.atan2(y1 - y2, x2 - x1)
-        # 将弧度制的角度换算到一、四象限
-        if theta > math.pi / 2.0:
-            theta -= math.pi
-        elif theta < -math.pi / 2.0:
-            theta += math.pi
-        angle = math.degrees(theta)
+        # 文本倾斜角
+        angle = calc_box_angle(box)
         # 文本块宽高比
-        width = (box[1][0] + box[2][0] - box[0][0] - box[3][0]) / 2.0
-        height = (box[2][1] + box[3][1] - box[0][1] - box[1][1]) / 2.0
-        ratio = math.fabs(width / height)
+        ratio = calc_width_height_ratio(box)
         text, score = rec_res[i]
         if score >= 0.9 and 2.0 < ratio < 100.0:
             angles.append(angle)
@@ -125,26 +116,18 @@ def test_sheet_extract(img, dt_boxes, rec_res):
     cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2, cv2.LINE_AA)
 
     # 计算文本块到直线的距离
-    up_boxes = []
-    down_boxes = []
-    vertical_boxes = []
+    up_boxes = []  # 化验单表头之上文本框
+    down_boxes = []  # 化验单表头之下文本框
+    vertical_boxes = []  # 竖直的文本框
+    ratio_dict = {}
     for item in other_boxes:
         box = item["box"]
         # 文本块宽高比
-        width = (box[1][0] + box[2][0] - box[0][0] - box[3][0]) / 2.0
-        height = (box[2][1] + box[3][1] - box[0][1] - box[1][1]) / 2.0
-        ratio = math.fabs(width / height)
+        ratio = calc_width_height_ratio(box)
+        ratio_dict[box[0][0]] = ratio
         # 文本倾斜角
-        x1, x2 = (box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0
-        y1, y2 = (box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0
-        theta = math.atan2(y1 - y2, x2 - x1)
-        # 将弧度制的角度换算到一、四象限
-        if theta > math.pi / 2.0:
-            theta -= math.pi
-        elif theta < -math.pi / 2.0:
-            theta += math.pi
-        angle = math.degrees(theta)
-        if ratio < 1 or angle > 45 or angle < -45:
+        angle = calc_box_angle(box)
+        if ratio < 0.5 or angle > 45 or angle < -45:
             # 剔除竖向文本框
             vertical_boxes.append(item)
             continue
@@ -196,12 +179,19 @@ def test_sheet_extract(img, dt_boxes, rec_res):
                 line_boxes = sorted(line_boxes, key=lambda t: t["box"][0][0])
                 # 打印输出
                 print("[LINE %d]............................" % line_idx)
-                x_cors = []
-                y_cors = []
-                for _box in line_boxes:
-                    x_cors.extend([(_box["box"][0][0] + _box["box"][3][0]) / 2.0, (_box["box"][1][0] + _box["box"][2][0]) / 2.0])
-                    y_cors.extend([(_box["box"][0][1] + _box["box"][3][1]) / 2.0, (_box["box"][1][1] + _box["box"][2][1]) / 2.0])
-                    print("text=%s, dis=%.2f" % (_box["text"], _box["dis"]))
+                x_cors, y_cors = [], []
+                for tmp_box in line_boxes:
+                    _box = tmp_box["box"]
+                    # 文本块宽高比
+                    ratio = ratio_dict[_box[0][0]]
+                    if ratio < 1:
+                        x, y = calc_center_point(_box)
+                        x_cors.append(x)
+                        y_cors.append(y)
+                    else:
+                        x_cors.extend([(_box[0][0] + _box[3][0]) / 2.0, (_box[1][0] + _box[2][0]) / 2.0])
+                        y_cors.extend([(_box[0][1] + _box[3][1]) / 2.0, (_box[1][1] + _box[2][1]) / 2.0])
+                    print("text=%s, dis=%.2f, ratio=%.2f" % (tmp_box["text"], tmp_box["dis"], ratio_dict[_box[0][0]]))
                 # 当一行的文本框不少于2个时，才重新计算该行直线方程；否则沿用上一行的直线斜率
                 if len(x_cors) > 2:
                     # 确定该行的直线方程并绘制直线
@@ -281,4 +271,25 @@ def calc_center_point(box):
 def f_1(x, a, b):
     return a * x + b
 
+
+# 计算文本框的高宽比
+def calc_width_height_ratio(box):
+    width = (box[1][0] + box[2][0] - box[0][0] - box[3][0]) / 2.0
+    height = (box[2][1] + box[3][1] - box[0][1] - box[1][1]) / 2.0
+    ratio = math.fabs(width / height)
+    return ratio
+
+
+# 计算文本框倾斜角
+def calc_box_angle(box):
+    x1, x2 = (box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0
+    y1, y2 = (box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0
+    theta = math.atan2(y1 - y2, x2 - x1)
+    # 将弧度制的角度换算到一、四象限
+    if theta > math.pi / 2.0:
+        theta -= math.pi
+    elif theta < -math.pi / 2.0:
+        theta += math.pi
+    angle = math.degrees(theta)
+    return angle
 

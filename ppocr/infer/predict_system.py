@@ -33,6 +33,7 @@ from ppocr.utils.utility import get_image_file_list, check_and_read_gif
 from ppocr.utils.logging import get_logger
 from ppocr.infer.utility import draw_ocr_box_txt
 from ppocr.utils.block_process import calc_block_angle, block_seg, test_sheet_extract
+from utils.img_process import imread_compress
 
 logger = get_logger()
 
@@ -148,13 +149,15 @@ def main(args):
     for image_file in image_file_list:
         img, flag = check_and_read_gif(image_file)
         if not flag:
-            img = cv2.imread(image_file)
+            # img = cv2.imread(image_file)
+            # TODO: image compress
+            img = imread_compress(image_file)
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
             continue
-        starttime = time.time()
+        start_time = time.time()
         dt_boxes, rec_res = text_sys(img)
-        elapse = time.time() - starttime
+        elapse = time.time() - start_time
         logger.info("Predict time of %s: %.3fs" % (image_file, elapse))
         # print('dt_boxes=%s' % dt_boxes)
         calc_block_angle(dt_boxes, rec_res)

@@ -35,34 +35,31 @@ def print_dict(d, logger, delimiter=0):
 
 
 def get_check_global_params(mode):
-    check_params = ['use_gpu', 'max_text_length', 'image_shape', \
+    check_params = ['use_gpu', 'max_text_length', 'image_shape',
                     'image_shape', 'character_type', 'loss_type']
     if mode == "train_eval":
-        check_params = check_params + [ \
-            'train_batch_size_per_card', 'test_batch_size_per_card']
+        check_params = check_params + ['train_batch_size_per_card', 'test_batch_size_per_card']
     elif mode == "test":
         check_params = check_params + ['test_batch_size_per_card']
     return check_params
 
 
 def get_image_file_list(img_file):
-    imgs_lists = []
+    img_list = []
     if img_file is None or not os.path.exists(img_file):
         raise Exception("not found any img file in {}".format(img_file))
 
     img_end = {'jpg', 'bmp', 'png', 'jpeg', 'rgb', 'tif', 'tiff', 'gif'}
-    if os.path.isfile(img_file) and os.path.splitext(img_file)[-1][1:].lower(
-    ) in img_end:
-        imgs_lists.append(img_file)
+    if os.path.isfile(img_file) and os.path.splitext(img_file)[-1][1:].lower() in img_end:
+        img_list.append(img_file)
     elif os.path.isdir(img_file):
         for single_file in os.listdir(img_file):
             file_path = os.path.join(img_file, single_file)
-            if os.path.isfile(file_path) and os.path.splitext(file_path)[-1][
-                    1:].lower() in img_end:
-                imgs_lists.append(file_path)
-    if len(imgs_lists) == 0:
+            if os.path.isfile(file_path) and os.path.splitext(file_path)[-1][1:].lower() in img_end:
+                img_list.append(file_path)
+    if len(img_list) == 0:
         raise Exception("not found any img file in {}".format(img_file))
-    return imgs_lists
+    return img_list
 
 
 def check_and_read_gif(img_path):
@@ -75,6 +72,6 @@ def check_and_read_gif(img_path):
             return None, False
         if len(frame.shape) == 2 or frame.shape[-1] == 1:
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        imgvalue = frame[:, :, ::-1]
-        return imgvalue, True
+        img_value = frame[:, :, ::-1]
+        return img_value, True
     return None, False

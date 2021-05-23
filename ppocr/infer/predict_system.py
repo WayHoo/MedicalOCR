@@ -146,76 +146,84 @@ def main(args):
     is_visualize = True
     font_path = args.vis_font_path
     drop_score = args.drop_score
+    error_img_list = []
     for image_file in image_file_list:
-        img, flag = check_and_read_gif(image_file)
-        if not flag:
-            # img = cv2.imread(image_file)
-            # TODO: image compress
-            img = imread_compress(image_file)
-        if img is None:
-            logger.info("error in loading image:{}".format(image_file))
+        try:
+            img, flag = check_and_read_gif(image_file)
+            if not flag:
+                # TODO: image compress
+                img = imread_compress(image_file, compress=args.use_gpu)
+            if img is None:
+                logger.info("error in loading image:{}".format(image_file))
+                continue
+            logger.info("processing image:{}".format(image_file))
+            start_time = time.time()
+            dt_boxes, rec_res = text_sys(img)
+            elapse = time.time() - start_time
+            logger.info("Predict time of %s: %.3fs" % (image_file, elapse))
+            # print('dt_boxes=%s' % dt_boxes)
+            calc_block_angle(dt_boxes, rec_res)
+            # post_process_img = block_seg(img, dt_boxes)
+            a, b = test_sheet_extract(img, dt_boxes, rec_res)
+            print('line a=%f, b=%f' % (a, b))
+
+            # out = []
+            # import json
+            # for i in range(len(rec_res)):
+            #     text, score = rec_res[i]
+            #     points = []
+            #     for box in dt_boxes[i]:
+            #         m, n = box
+            #         l = []
+            #         l.append(float(m))
+            #         l.append(float(n))
+            #         points.append(l)
+            #     tmp = {}
+            #     tmp["text"] = text
+            #     tmp["score"] = float(score)
+            #     tmp["points"] = points
+            #     out.append(tmp)
+            # print(json.dumps(out))
+
+                # logger.info("{}, {:.3f}, {}".format(text, score, dt_boxes[i]))
+
+            # for text, score in rec_res:
+            #     logger.info("{}, {:.3f}".format(text, score))
+
+            if is_visualize:
+                image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+                boxes = dt_boxes
+                txts = [rec_res[i][0] for i in range(len(rec_res))]
+                scores = [rec_res[i][1] for i in range(len(rec_res))]
+
+                draw_img = draw_ocr_box_txt(
+                    image,
+                    boxes,
+                    txts,
+                    scores,
+                    drop_score=drop_score,
+                    font_path=font_path,
+                    f_a_b=(a, b))
+                draw_img_save = "./output/inference_results/"
+                if not os.path.exists(draw_img_save):
+                    os.makedirs(draw_img_save)
+                cv2.imwrite(
+                    os.path.join(draw_img_save, os.path.basename(image_file)),
+                    draw_img[:, :, ::-1])
+                # post_process_img_save = "./output/post_process_results/"
+                # if not os.path.exists(post_process_img_save):
+                #     os.makedirs(post_process_img_save)
+                # cv2.imwrite(
+                #     os.path.join(post_process_img_save, os.path.basename(image_file)),
+                #     post_process_img[:, :, ::-1])
+                logger.info("The visualized image saved in {}".format(
+                    os.path.join(draw_img_save, os.path.basename(image_file))))
+        except BaseException:
+            error_img_list.append(image_file)
             continue
-        start_time = time.time()
-        dt_boxes, rec_res = text_sys(img)
-        elapse = time.time() - start_time
-        logger.info("Predict time of %s: %.3fs" % (image_file, elapse))
-        # print('dt_boxes=%s' % dt_boxes)
-        calc_block_angle(dt_boxes, rec_res)
-        # post_process_img = block_seg(img, dt_boxes)
-        a, b = test_sheet_extract(img, dt_boxes, rec_res)
-        print('line a=%f, b=%f' % (a, b))
-
-        # out = []
-        # import json
-        # for i in range(len(rec_res)):
-        #     text, score = rec_res[i]
-        #     points = []
-        #     for box in dt_boxes[i]:
-        #         m, n = box
-        #         l = []
-        #         l.append(float(m))
-        #         l.append(float(n))
-        #         points.append(l)
-        #     tmp = {}
-        #     tmp["text"] = text
-        #     tmp["score"] = float(score)
-        #     tmp["points"] = points
-        #     out.append(tmp)
-        # print(json.dumps(out))
-
-            # logger.info("{}, {:.3f}, {}".format(text, score, dt_boxes[i]))
-
-        # for text, score in rec_res:
-        #     logger.info("{}, {:.3f}".format(text, score))
-
-        if is_visualize:
-            image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            boxes = dt_boxes
-            txts = [rec_res[i][0] for i in range(len(rec_res))]
-            scores = [rec_res[i][1] for i in range(len(rec_res))]
-
-            draw_img = draw_ocr_box_txt(
-                image,
-                boxes,
-                txts,
-                scores,
-                drop_score=drop_score,
-                font_path=font_path,
-                f_a_b=(a, b))
-            draw_img_save = "./output/inference_results/"
-            if not os.path.exists(draw_img_save):
-                os.makedirs(draw_img_save)
-            cv2.imwrite(
-                os.path.join(draw_img_save, os.path.basename(image_file)),
-                draw_img[:, :, ::-1])
-            # post_process_img_save = "./output/post_process_results/"
-            # if not os.path.exists(post_process_img_save):
-            #     os.makedirs(post_process_img_save)
-            # cv2.imwrite(
-            #     os.path.join(post_process_img_save, os.path.basename(image_file)),
-            #     post_process_img[:, :, ::-1])
-            logger.info("The visualized image saved in {}".format(
-                os.path.join(draw_img_save, os.path.basename(image_file))))
+    print('----------------image process statistic----------------')
+    print('error_img_list num:', len(error_img_list))
+    print('error_img_list:', error_img_list)
 
 
 if __name__ == "__main__":

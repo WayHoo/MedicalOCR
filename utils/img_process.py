@@ -84,19 +84,22 @@ def fld_line_detect(image):
 
 
 # 压缩图片文件
-def imread_compress(img_path):
+def imread_compress(img_path, compress=True):
     # img_res = cv2.resize(img, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
     # cv2.imwrite(os.path.join("./output/post_process_results/", "img_resize.jpg"), img_res)
     # return img_res
+    begin = time.time()
     o_size = os.path.getsize(img_path)
-    print("[Before] image memory size = %.2fKB" % (o_size / 1024.0))
-    scale = int(51200 * 1024.0 / o_size)
+    print("[Origin] image memory size = %.2fKB" % (o_size / 1024.0))
     img = cv2.imread(img_path)
-    if scale < 100:
+    scale = int(51200 * 1024.0 / o_size)
+    if compress and scale < 100:
         save_path = "./output/post_process_results/img_resize.jpg"
         cv2.imwrite(save_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), scale])
         img = cv2.imread(save_path)
-        print("[After] image memory size = %.2fKB" % (os.path.getsize(save_path) / 1024.0))
+        print("[Compressed] image memory size = %.2fKB" % (os.path.getsize(save_path) / 1024.0))
+    end = time.time()
+    print("image read and compress execute time: %.2fs" % (end - begin))
     return img
 
 
@@ -107,5 +110,5 @@ if __name__ == "__main__":
     # hough_p_line_detect(src.copy())
     # auto_canny(src)
     # fld_line_detect(src.copy())
-    img_res = imread_compress(img_path)
+    img_res = imread_compress(img_path, compress=True)
     print("image shape after resize =", img_res.shape)

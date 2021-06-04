@@ -19,6 +19,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import cv2
 import copy
@@ -218,8 +219,9 @@ def main(args):
                 #     post_process_img[:, :, ::-1])
                 logger.info("The visualized image saved in {}".format(
                     os.path.join(draw_img_save, os.path.basename(image_file))))
-        except BaseException:
+        except BaseException as e:
             error_img_list.append(image_file)
+            logger.error("Exception occurred: {}".format(e))
             continue
     print('----------------image process statistic----------------')
     print('error_img_list num:', len(error_img_list))

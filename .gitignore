@@ -130,7 +130,6 @@ dmypy.json
 
 # Pycharm
 .idea/
-*.jpg
 
 # large inference file
 *.pdiparams

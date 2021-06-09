@@ -1,8 +1,11 @@
+# coding=utf-8
 import math
+import time
 import cv2
 import pandas as pd
 import numpy as np
 from scipy import optimize, stats
+from utils.nlp import jieba_seg
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -50,35 +53,55 @@ def block_seg(img, dt_boxes):
 
 # 化验单内容提取
 def test_sheet_extract(img, dt_boxes, rec_res):
+    # 化验栏标题
+    with open("./doc/dict/test_sheet_dict.txt", "r", encoding="utf-8") as f:
+        head_words = f.read().splitlines()
     text_map = {}
+    # 候选表头文本框，候选非表头文本框
+    candi_head_boxes, candi_other_boxes = [], []
+    head_box_dict = {}
+    begin = time.time()
+    print("jieba_seg begin...")
     for i in range(len(dt_boxes)):
         text, score = rec_res[i]
-        meta = {'text': text, 'score': score, 'box': dt_boxes[i]}
+        box = dt_boxes[i]
+        box_key = get_box_key(box)
+        meta = {'text': text, 'score': score, 'box': box}
+        # ---------------------jieba_seg-----------------------
+        words = jieba_seg(text)
+        for word in words:
+            if word in head_words:
+                if box_key not in head_box_dict.keys():
+                    head_box_dict[box_key] = [word]
+                    candi_head_boxes.append(meta)
+                else:
+                    head_box_dict[box_key].append(word)
+                print("word=%s, text=%s, box=%s" % (word, text, box))
+        # ---------------------jieba_seg-----------------------
         if text not in text_map:
             text_map[text] = [meta]
         else:
             text_map[text].append(meta)
+    end = time.time()
+    print("jieba_seg end, cost %.2fs" % (end - begin))
 
-    # 化验栏标题
-    head_words = {'序号', 'No', 'NO', '编号'
-                  '代号', '项目代号',
-                  '项目名称', '项目全称', '项目', '检验项目', '检测项目', '中文名称',
-                  '英文对照', '英文代码', '英文', '项目简称', '英文名称', '英文缩写', '缩写',
-                  '结果', '定性结果', '项目结果', '结果浓度', '测定结果', '检测结果', '检验结果',
-                  '标志', '异常提示结果', '提示', '结果提示', '结果描述', '报警',
-                  '单位', '项目单位',
-                  '参考范围', '参考值', '参考区间',
-                  '方法学', '检验方法', '实验方法', '方法'}
     # 提取化验栏标题并判断单栏或双栏
-    table_heads, other_boxes = [], []
+    head_boxes, other_boxes = [], []
     diff_word_cnt, total_word_cnt = 0.0, 0.0
-    for word in text_map:
+    for key in text_map:
+        word = str(key).upper().strip().strip('.')
         if word in head_words:
             diff_word_cnt += 1
-            total_word_cnt += len(text_map[word])
-            table_heads.extend(text_map[word])
+            total_word_cnt += len(text_map[key])
+            head_boxes.extend(text_map[key])
         else:
-            other_boxes.extend(text_map[word])
+            other_boxes.extend(text_map[key])
+
+    # TODO: 分词方式提取化验栏标题，可处理竖直方向多个化验表，水平方向不支持
+    head_lines = extract_head_lines(candi_head_boxes, head_box_dict)
+
+
+    # TODO: 一张图片可能包含多张化验单，需要对table_heads做聚类处理
     ratio = total_word_cnt / diff_word_cnt
     # TODO: ratio阈值用于判断双栏或单栏化验单，经验值设定
     if ratio > 1.2:
@@ -87,11 +110,10 @@ def test_sheet_extract(img, dt_boxes, rec_res):
         print('单栏化验单')
     print('head_word_ratio=%f' % ratio)
 
-    x_cors = []
-    y_cors = []
+    x_cors, y_cors = [], []
     # 根据文本框左上角坐标点的横坐标从小到大排序（文本框从左到右排序）
-    table_heads = sorted(table_heads, key=lambda head: head['box'][0][0])
-    for item in table_heads:
+    head_boxes = sorted(head_boxes, key=lambda head: head['box'][0][0])
+    for item in head_boxes:
         box = item['box']
         x_cors.extend([(box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0])
         y_cors.extend([(box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0])
@@ -99,11 +121,25 @@ def test_sheet_extract(img, dt_boxes, rec_res):
     # 直线拟合
     # TODO: 剔除坐标点中的异常值
     a, b = optimize.curve_fit(f_1, x_cors, y_cors)[0]
+    # TODO: 处理表头直线穿过的所有文本框
+    new_other_boxes = []
+    for item in other_boxes:
+        box = item['box']
+        if is_box_on_line(box, a, b):
+            pass
+        else:
+            new_other_boxes.append(item)
+    other_boxes = new_other_boxes
+
+
+
+    # TODO: 根据表头限定化验栏在x方向的范围，过于依赖表头处理的准确度
+    x_min, x_max = x_cors[0], x_cors[-1]
+    y_min, y_max = y_cors[0], y_cors[-1]
     # 直线绘制
-    x1 = 0
-    x2 = img.shape[1]  # (height, width, channel)
-    y1 = int(f_1(x1, a, b))
-    y2 = int(f_1(x2, a, b))
+    # img.shape (height, width, channel)
+    x1, y1 = int(x_min), int(f_1(x_min, a, b))
+    x2, y2 = int(x_max), int(f_1(x_max, a, b))
     cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2, cv2.LINE_AA)
 
     # 计算文本块到直线的距离
@@ -193,8 +229,15 @@ def test_sheet_extract(img, dt_boxes, rec_res):
                     tmp_x, tmp_y = np.mean(x_cors), np.mean(y_cors)
                     _a = pre_k
                     _b = tmp_y - _a * tmp_x
-                x1, x2 = 0, img.shape[1]
-                y1, y2 = int(f_1(x1, _a, _b)), int(f_1(x2, _a, _b))
+                # 绘制当前行有文本框的范围
+                x1, x2 = int(x_cors[0]), int(x_cors[-1])
+                y1, y2 = int(f_1(x_cors[0], _a, _b)), int(f_1(x_cors[-1], _a, _b))
+                # 仅绘制表头宽度范围，严重依赖于表头处理，bad case较多
+                # x1, y1 = calc_point_project_to_line((x_min, y_min), _a, _b)
+                # x2, y2 = calc_point_project_to_line((x_max, y_max), _a, _b)
+                # 绘制整个图片宽度范围
+                # x1, x2 = 0, img.shape[1]
+                # y1, y2 = int(f_1(x1, _a, _b)), int(f_1(x2, _a, _b))
                 cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2, cv2.LINE_AA)
                 # 计算剩余文本框到该直线的距离
                 down_boxes = down_boxes[len(line_boxes):]
@@ -246,9 +289,9 @@ def get_middle_point(box):
     return x / 4.0, y / 4.0
 
 
-# 计算点到直线的距离，直线方程 A*x + B*y + C = 0
-def calc_point_to_line(A, B, C, x, y):
-    return math.fabs(A*x + B*y + C) / math.sqrt(A*A + B*B)
+# 计算点到直线的距离，直线方程 a*x + b*y + c = 0
+def calc_point_to_line(a, b, c, x, y):
+    return math.fabs(a * x + b * y + c) / math.sqrt(a * a + b * b)
 
 
 # 计算矩形文本框的质心坐标
@@ -284,3 +327,51 @@ def calc_box_angle(box):
     angle = math.degrees(theta)
     return angle
 
+
+def calc_point_project_to_line(point, a, b):
+    """
+    计算点投影到直线的点的坐标
+    :param point: 点的 x, y 坐标，point为元组类型
+    :param a: 直线方程参数（斜率），直线方程为 y = ax + b 形式
+    :param b: 直线方程参数（截距）
+    :return: 投影点整型坐标
+    """
+    x, y = point[0], point[1]
+    x0 = (a*y + x - a*b) / (a*a + 1)
+    y0 = a*x0 + b
+    return int(x0), int(y0)
+
+
+def is_box_on_line(box, a, b):
+    """
+    判断直线是否穿过文本框
+    :param box: 文本框
+    :param a: 直线方程参数（斜率），直线方程为 y = ax + b 形式
+    :param b: 直线方程参数（截距）
+    :return: True or False
+    """
+    flag_list = []
+    for point in box:
+        x0, y0 = point[0], point[1]
+        y = a*x0 + b
+        flag = 1 if y0 >= y else -1
+        flag_list.append(flag)
+    res = 1
+    for flag in flag_list:
+        res *= flag
+    return True if res <= 0 else False
+
+
+def get_box_key(box):
+    """
+    获取文本框的hash key，用于dict
+    :param box: 文本框
+    :return: 以1、4坐标点的x、y坐标拼接成的字符串
+    """
+    return "%d_%d_%d_%d" % (box[0][0], box[0][1], box[3][0], box[3][0])
+
+
+def extract_head_lines(candi_head_boxes, head_box_dict):
+    for k, v in candi_head_boxes.items():
+        box = v["box"]
+        # 确定文本框的直线方程

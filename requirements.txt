@@ -9,3 +9,4 @@ numpy
 visualdl
 python-Levenshtein
 pandas
+jieba

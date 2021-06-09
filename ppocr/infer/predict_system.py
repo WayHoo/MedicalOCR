@@ -19,7 +19,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "8"
 
 import cv2
 import copy
@@ -153,7 +153,8 @@ def main(args):
             img, flag = check_and_read_gif(image_file)
             if not flag:
                 # TODO: image compress
-                img = imread_compress(image_file, compress=args.use_gpu)
+                # img = imread_compress(image_file, compress=args.use_gpu)
+                img = imread_compress(image_file, compress=False)
             if img is None:
                 logger.info("error in loading image:{}".format(image_file))
                 continue
@@ -163,7 +164,7 @@ def main(args):
             elapse = time.time() - start_time
             logger.info("Predict time of %s: %.3fs" % (image_file, elapse))
             # print('dt_boxes=%s' % dt_boxes)
-            calc_block_angle(dt_boxes, rec_res)
+            # calc_block_angle(dt_boxes, rec_res)
             # post_process_img = block_seg(img, dt_boxes)
             a, b = test_sheet_extract(img, dt_boxes, rec_res)
             print('line a=%f, b=%f' % (a, b))
@@ -205,7 +206,8 @@ def main(args):
                     drop_score=drop_score,
                     font_path=font_path,
                     f_a_b=(a, b))
-                draw_img_save = "./output/inference_results/"
+                # draw_img_save = "./output/inference_results/"
+                draw_img_save = "./output/inference_results/bad_test_sheet/head_words_seg/"
                 if not os.path.exists(draw_img_save):
                     os.makedirs(draw_img_save)
                 cv2.imwrite(

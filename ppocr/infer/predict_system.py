@@ -33,7 +33,7 @@ import ppocr.infer.predict_cls as predict_cls
 from ppocr.utils.utility import get_image_file_list, check_and_read_gif
 from ppocr.utils.logging import get_logger
 from ppocr.infer.utility import draw_ocr_box_txt
-from ppocr.utils.block_process import calc_block_angle, block_seg, test_sheet_extract
+from ppocr.utils.block_process import calc_block_angle, block_seg, extract_test_sheet
 from utils.img_process import imread_compress
 
 logger = get_logger()
@@ -166,7 +166,7 @@ def main(args):
             # print('dt_boxes=%s' % dt_boxes)
             # calc_block_angle(dt_boxes, rec_res)
             # post_process_img = block_seg(img, dt_boxes)
-            test_sheet_extract(img, dt_boxes, rec_res)
+            extract_test_sheet(img, dt_boxes, rec_res)
 
             # out = []
             # import json

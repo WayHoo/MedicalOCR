@@ -6,17 +6,18 @@ import pandas as pd
 import numpy as np
 from scipy import optimize, stats
 from utils.nlp import jieba_seg
+from collections import deque
 from PIL import Image, ImageDraw, ImageFont
 
 
 def calc_block_angle(dt_boxes, rec_res):
-    '''
+    """
     根据文本检测框计算文本倾斜角度
     :param dt_boxes: 文本检测框列表
     [array([[262., 130.], [423., 130.], [423., 167.], [262., 167.]], dtype=float32), ...]
     :param rec_res: 文本块内容列表
     :return: 倾斜角度（弧度）
-    '''
+    """
 
     angles = []
     i = -1
@@ -51,15 +52,21 @@ def block_seg(img, dt_boxes):
     return cv2.bitwise_or(img, mask)
 
 
-# 化验单内容提取
 def test_sheet_extract(img, dt_boxes, rec_res):
+    """
+    提取化验单内容
+    :param img: 化验单图像
+    :param dt_boxes: 检测文本框
+    :param rec_res: 识别文本框
+    :return: None
+    """
     # 化验栏标题
     with open("./doc/dict/test_sheet_dict.txt", "r", encoding="utf-8") as f:
         head_words = f.read().splitlines()
     text_map = {}
     # 候选表头文本框，候选非表头文本框
-    candi_head_boxes, candi_other_boxes = [], []
-    head_box_dict = {}
+    candi_head_box_dict, candi_other_box_dict = {}, {}
+    head_box_dict = {}  # box_key → {"seg_num": 3, "words": ["结果", "提示", "范围"]}
     begin = time.time()
     print("jieba_seg begin...")
     for i in range(len(dt_boxes)):
@@ -70,13 +77,18 @@ def test_sheet_extract(img, dt_boxes, rec_res):
         # ---------------------jieba_seg-----------------------
         words = jieba_seg(text)
         for word in words:
-            if word in head_words:
+            tmp_word = word.upper()
+            if tmp_word in head_words:
                 if box_key not in head_box_dict.keys():
-                    head_box_dict[box_key] = [word]
-                    candi_head_boxes.append(meta)
+                    head_box_dict[box_key] = {}
+                    head_box_dict[box_key]["seg_num"] = len(words)
+                    head_box_dict[box_key]["words"] = [word]
+                    candi_head_box_dict[box_key] = meta
                 else:
-                    head_box_dict[box_key].append(word)
+                    head_box_dict[box_key]["words"].append(word)
                 print("word=%s, text=%s, box=%s" % (word, text, box))
+        if box_key not in candi_head_box_dict.keys():
+            candi_other_box_dict[box_key] = meta
         # ---------------------jieba_seg-----------------------
         if text not in text_map:
             text_map[text] = [meta]
@@ -98,8 +110,30 @@ def test_sheet_extract(img, dt_boxes, rec_res):
             other_boxes.extend(text_map[key])
 
     # TODO: 分词方式提取化验栏标题，可处理竖直方向多个化验表，水平方向不支持
-    head_lines = extract_head_lines(candi_head_boxes, head_box_dict)
+    head_lines = extract_head_lines(candi_head_box_dict)
+    for idx, line in enumerate(head_lines):
+        if len(line) == 1:
+            print("head line %d ignored, text=%s" % ((idx + 1), line[0]["text"]))
+            continue
+        boxes = []
+        print("head line %d start..." % (idx + 1))
+        seg_ratio_sum = 0.0
+        seg_text_set = set()
+        for meta in line:
+            box = meta["box"]
+            box_key = get_box_key(box)
+            seg_text_set.add(box_key)
+            boxes.append(box)
+            seg_ratio_sum += (1.0 / head_box_dict[box_key]["seg_num"])
+            print("head_text=%s, head_words=%s" % (meta["text"], head_box_dict[box_key]["words"]))
+        seg_ratio = seg_ratio_sum / len(seg_text_set)
+        if seg_ratio >= (2.0 / 3.0):
+            a, b = calc_boxes_line_func(boxes, img)
+            print("head line %d end, seg_ratio=%.2f" % ((idx + 1), seg_ratio))
+        else:
+            print("head line %d skipped, seg_ratio=%.2f" % ((idx + 1), seg_ratio))
 
+    return
 
     # TODO: 一张图片可能包含多张化验单，需要对table_heads做聚类处理
     ratio = total_word_cnt / diff_word_cnt
@@ -113,10 +147,12 @@ def test_sheet_extract(img, dt_boxes, rec_res):
     x_cors, y_cors = [], []
     # 根据文本框左上角坐标点的横坐标从小到大排序（文本框从左到右排序）
     head_boxes = sorted(head_boxes, key=lambda head: head['box'][0][0])
+
     for item in head_boxes:
         box = item['box']
-        x_cors.extend([(box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0])
-        y_cors.extend([(box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0])
+        (x1, y1), (x2, y2) = get_left_right_point(box)
+        x_cors.extend([x1, x2])
+        y_cors.extend([y1, y2])
         print('text=%s, score=%s, box=%s' % (item['text'], item['score'], box))
     # 直线拟合
     # TODO: 剔除坐标点中的异常值
@@ -125,7 +161,7 @@ def test_sheet_extract(img, dt_boxes, rec_res):
     new_other_boxes = []
     for item in other_boxes:
         box = item['box']
-        if is_box_on_line(box, a, b):
+        if check_box_line_dire(box, a, b):
             pass
         else:
             new_other_boxes.append(item)
@@ -216,8 +252,9 @@ def test_sheet_extract(img, dt_boxes, rec_res):
                         x_cors.append(x)
                         y_cors.append(y)
                     else:
-                        x_cors.extend([(_box[0][0] + _box[3][0]) / 2.0, (_box[1][0] + _box[2][0]) / 2.0])
-                        y_cors.extend([(_box[0][1] + _box[3][1]) / 2.0, (_box[1][1] + _box[2][1]) / 2.0])
+                        (x1, y1), (x2, y2) = get_left_right_point(_box)
+                        x_cors.extend([x1, x2])
+                        y_cors.extend([y1, y2])
                     print("text=%s, dis=%.2f, ratio=%.2f" % (tmp_box["text"], tmp_box["dis"], ratio_dict[_box[0][0]]))
                 # 当一行的文本框不少于2个时，才重新计算该行直线方程；否则沿用上一行的直线斜率
                 if len(x_cors) > 2:
@@ -278,10 +315,15 @@ def test_sheet_extract(img, dt_boxes, rec_res):
     # up_downs = sorted(up_downs, key=lambda x: (x['box'][0][1], x['box'][0][0]))
     # for item in up_downs:
     #     print('text=%s, score=%s, box=%s' % (item['text'], item['score'], item['box']))
-    return a, b
+    return
 
 
 def get_middle_point(box):
+    """
+    获取四边形中心点坐标
+    :param box: 文本框
+    :return: 坐标
+    """
     x, y = 0.0, 0.0
     for point in box:
         x += point[0]
@@ -289,35 +331,72 @@ def get_middle_point(box):
     return x / 4.0, y / 4.0
 
 
-# 计算点到直线的距离，直线方程 a*x + b*y + c = 0
 def calc_point_to_line(a, b, c, x, y):
+    """
+    计算点到直线的距离，直线方程 a*x + b*y + c = 0
+    :param a: x系数
+    :param b: y系数
+    :param c: 常数
+    :param x: 自变量
+    :param y: 因变量
+    :return:
+    """
     return math.fabs(a * x + b * y + c) / math.sqrt(a * a + b * b)
 
 
-# 计算矩形文本框的质心坐标
+def get_left_right_point(box):
+    """
+    获取四边形左侧边中点坐标和右侧边中点坐标
+    :param box: 文本框
+    :return: 两个点坐标
+    """
+    left_point = ((box[0][0] + box[3][0]) / 2.0, (box[0][1] + box[3][1]) / 2.0)
+    right_point = ((box[1][0] + box[2][0]) / 2.0, (box[1][1] + box[2][1]) / 2.0)
+    return left_point, right_point
+
+
 def calc_center_point(box):
-    x = (box[0][0] + box[1][0] + box[2][0] + box[3][0]) / 4.0
-    y = (box[0][1] + box[1][1] + box[2][1] + box[3][1]) / 4.0
+    """
+    计算矩形文本框的质心坐标
+    :param box: 文本框
+    :return: 文本框质心左边，横坐标为四个顶点横坐标的平均值，纵坐标为四个顶点纵坐标的平均值
+    """
+    (x1, y1), (x2, y2) = get_left_right_point(box)
+    x = (x1 + x2) / 2.0
+    y = (y1 + y2) / 2.0
     return x, y
 
 
-# 直线方程函数
 def f_1(x, a, b):
+    """
+    直线方程函数
+    :param x: 自变量
+    :param a: 斜率
+    :param b: 截距
+    :return: 因变量
+    """
     return a * x + b
 
 
-# 计算文本框的高宽比
 def calc_width_height_ratio(box):
+    """
+    计算文本框的高宽比
+    :param box: 文本框
+    :return: 高宽比
+    """
     width = (box[1][0] + box[2][0] - box[0][0] - box[3][0]) / 2.0
     height = (box[2][1] + box[3][1] - box[0][1] - box[1][1]) / 2.0
     ratio = math.fabs(width / height)
     return ratio
 
 
-# 计算文本框倾斜角
 def calc_box_angle(box):
-    x1, x2 = (box[0][0] + box[3][0]) / 2.0, (box[1][0] + box[2][0]) / 2.0
-    y1, y2 = (box[0][1] + box[3][1]) / 2.0, (box[1][1] + box[2][1]) / 2.0
+    """
+    计算文本框倾斜角
+    :param box: 文本框
+    :return: 角度值的倾斜角，一、四象限
+    """
+    (x1, y1), (x2, y2) = get_left_right_point(box)
     theta = math.atan2(y1 - y2, x2 - x1)
     # 将弧度制的角度换算到一、四象限
     if theta > math.pi / 2.0:
@@ -342,24 +421,30 @@ def calc_point_project_to_line(point, a, b):
     return int(x0), int(y0)
 
 
-def is_box_on_line(box, a, b):
+def check_box_line_dire(box, a, b):
     """
-    判断直线是否穿过文本框
+    判断直线与文本框方位
     :param box: 文本框
     :param a: 直线方程参数（斜率），直线方程为 y = ax + b 形式
     :param b: 直线方程参数（截距）
-    :return: True or False
+    :return: 1-文本框在直线上方 0-直线穿过文本框 -1-文本框在直线下方
     """
-    flag_list = []
+    up, on, below = False, False, False
     for point in box:
         x0, y0 = point[0], point[1]
         y = a*x0 + b
-        flag = 1 if y0 >= y else -1
-        flag_list.append(flag)
-    res = 1
-    for flag in flag_list:
-        res *= flag
-    return True if res <= 0 else False
+        if y0 > y:
+            up = True
+        elif y0 == y:
+            on = True
+        else:
+            below = True
+    if on or (up and below):
+        return 0
+    elif up and not below:
+        return 1
+    else:
+        return -1
 
 
 def get_box_key(box):
@@ -368,10 +453,91 @@ def get_box_key(box):
     :param box: 文本框
     :return: 以1、4坐标点的x、y坐标拼接成的字符串
     """
-    return "%d_%d_%d_%d" % (box[0][0], box[0][1], box[3][0], box[3][0])
+    return "%d_%d_%d_%d" % (box[0][0], box[0][1], box[3][0], box[3][1])
 
 
-def extract_head_lines(candi_head_boxes, head_box_dict):
-    for k, v in candi_head_boxes.items():
-        box = v["box"]
+def calc_boxes_line_func(boxes, img=None):
+    """
+    计算多个文本框拟合的直线方程
+    :param boxes: 文本框列表
+    :param img: 图片，传改参数即绘制直线
+    :return: 直线方程参数，a-斜率 b-截距
+    """
+    x_cors, y_cors = [], []
+    draw_x1, draw_x2, draw_y1, draw_y2 = float("inf"), 0, 0, 0
+    for box in boxes:
+        (x1, y1), (x2, y2) = get_left_right_point(box)
+        x_cors.extend([x1, x2])
+        y_cors.extend([y1, y2])
+        if x1 < draw_x1:
+            draw_x1 = x1
+            draw_y1 = y1
+        if x2 > draw_x2:
+            draw_x2 = x2
+            draw_y2 = y2
+    if img is not None:
+        cv2.line(img, (int(draw_x1), int(draw_y1)), (int(draw_x2), int(draw_y2)), (0, 0, 255), 2, cv2.LINE_AA)
+    a, b = optimize.curve_fit(f_1, x_cors, y_cors)[0]
+    return a, b
+
+
+def extract_head_lines(candi_head_box_dict):
+    """
+    化验单表头文本框按行聚类
+    :param candi_head_box_dict: 候选表头文本框，通过分词算法提取
+    :return: 二维列表，[[box1, box2, ...], ...], box元素类型为{"text": "检验项目", "score": 0.9, "box": [[1.0, 2.0], ...]}
+    """
+    same_line_box_dict = {}  # box→与box在同一行的box列表(不包含key对应的box)
+    for box_key, meta in candi_head_box_dict.items():
+        box = meta["box"]
         # 确定文本框的直线方程
+        a, b = calc_boxes_line_func([box])
+        same_line_box_dict[box_key] = []
+        for _box_key, _meta in candi_head_box_dict.items():
+            _box = _meta["box"]
+            if _box_key == box_key:
+                continue
+            if check_box_line_dire(_box, a, b) == 0:
+                same_line_box_dict[box_key].append(_box_key)
+
+    def bfs(key="", box_dict=None):
+        if key not in box_dict.keys():
+            return []
+        res = [key]
+        visited = {key}
+        if len(box_dict[key]) == 0:
+            return res
+        queue = deque()
+        for _k in box_dict[key]:
+            queue.append(_k)
+        while len(queue) > 0:
+            _k = queue.popleft()
+            visited.add(_k)
+            res.append(_k)
+            if _k in box_dict.keys() and len(box_dict[_k]) > 0:
+                for tmp_k in box_dict[_k]:
+                    if tmp_k not in visited:
+                        visited.add(tmp_k)
+                        queue.append(tmp_k)
+        return res
+
+    candi_lines = []
+    for k, v in same_line_box_dict.items():
+        meta = {"key": k, "box_keys": bfs(k, same_line_box_dict)}
+        candi_lines.append(meta)
+    candi_lines.sort(key=lambda x: len(x["box_keys"]), reverse=True)
+    final_lines = []
+    tmp_set = set()
+    for meta in candi_lines:
+        if meta["key"] in tmp_set:
+            continue
+        boxes = []
+        for tmp_key in meta["box_keys"]:
+            if tmp_key in tmp_set:
+                continue
+            else:
+                tmp_set.add(tmp_key)
+                boxes.append(candi_head_box_dict[tmp_key])
+        if len(boxes) > 0:
+            final_lines.append(boxes)
+    return final_lines

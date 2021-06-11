@@ -166,8 +166,7 @@ def main(args):
             # print('dt_boxes=%s' % dt_boxes)
             # calc_block_angle(dt_boxes, rec_res)
             # post_process_img = block_seg(img, dt_boxes)
-            a, b = test_sheet_extract(img, dt_boxes, rec_res)
-            print('line a=%f, b=%f' % (a, b))
+            test_sheet_extract(img, dt_boxes, rec_res)
 
             # out = []
             # import json
@@ -204,10 +203,9 @@ def main(args):
                     txts,
                     scores,
                     drop_score=drop_score,
-                    font_path=font_path,
-                    f_a_b=(a, b))
+                    font_path=font_path)
                 # draw_img_save = "./output/inference_results/"
-                draw_img_save = "./output/inference_results/bad_test_sheet/head_words_seg/"
+                draw_img_save = "./output/inference_results/bad_test_sheet/multi_table_head_lines/"
                 if not os.path.exists(draw_img_save):
                     os.makedirs(draw_img_save)
                 cv2.imwrite(

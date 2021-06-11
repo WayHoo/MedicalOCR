@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument("--gpu_mem", type=int, default=1000)
 
     # params for text detector
-    parser.add_argument("--image_dir", type=str, default='./doc/imgs/bad_test_sheet/head_words_seg/')
+    parser.add_argument("--image_dir", type=str, default='./doc/imgs/bad_test_sheet/multi_table_head_lines/')
     parser.add_argument("--det_algorithm", type=str, default='DB')
     parser.add_argument("--det_model_dir", type=str, default='./inference/ch_ppocr_server_v2.0_det_infer/')
     parser.add_argument("--det_limit_side_len", type=float, default=960)
@@ -211,8 +211,7 @@ def draw_ocr_box_txt(image,
                      txts,
                      scores=None,
                      drop_score=0.5,
-                     font_path="./doc/fonts/simfang.ttf",
-                     f_a_b=None):
+                     font_path="./doc/fonts/simfang.ttf"):
     h, w = image.height, image.width
     img_left = image.copy()
     img_right = Image.new('RGB', (w, h), (255, 255, 255))
@@ -229,17 +228,6 @@ def draw_ocr_box_txt(image,
                  random.randint(0, 255))
         draw_left.polygon(box, fill=color)
         draw_right.polygon(box, outline=color)
-        # if f_a_b is not None:
-            # # 直线方程表达式
-            # f_1 = lambda x: f_a_b[0] * x + f_a_b[1]
-            # for draw_img in [draw_left, draw_right]:
-            #     draw_img.line([(0, f_1(0)), (w, f_1(w))], width=5, fill=128)
-        # draw_right.polygon(
-        #     [
-        #         box[0][0], box[0][1], box[1][0], box[1][1], box[2][0],
-        #         box[2][1], box[3][0], box[3][1]
-        #     ],
-        #     outline=color)
         box_height = math.sqrt((box[0][0] - box[3][0])**2 + (box[0][1] - box[3][
             1])**2)
         box_width = math.sqrt((box[0][0] - box[1][0])**2 + (box[0][1] - box[1][

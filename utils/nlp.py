@@ -16,4 +16,7 @@ def jieba_seg(text):
 
 
 if __name__ == "__main__":
-    print(jieba_seg("项目结果生物参考区间提示单位NO检验项目检验结果参考范围单位No"))
+    text_list = ["项目结果生物参考区间提示单位NO检验项目检验结果参考范围单位No",
+                 "序号：0024", "检验项目名称"]
+    for text in text_list:
+        print(jieba_seg(text))

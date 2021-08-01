@@ -19,7 +19,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
-os.environ["CUDA_VISIBLE_DEVICES"] = "8"
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 
 import cv2
 import copy
@@ -205,7 +205,7 @@ def main(args):
                     drop_score=drop_score,
                     font_path=font_path)
                 # draw_img_save = "./output/inference_results/"
-                draw_img_save = "./output/inference_results/bad_test_sheet/multi_table_head_lines/"
+                draw_img_save = "./output/inference_results/test_sheets/batch_001/"
                 if not os.path.exists(draw_img_save):
                     os.makedirs(draw_img_save)
                 cv2.imwrite(
@@ -224,8 +224,9 @@ def main(args):
             logger.error("Exception occurred: {}".format(e))
             continue
     print('----------------image process statistic----------------')
-    print('error_img_list num:', len(error_img_list))
-    print('error_img_list:', error_img_list)
+    print('total image num:', len(image_file_list))
+    print('error image num:', len(error_img_list))
+    print('error image list:', error_img_list)
 
 
 if __name__ == "__main__":

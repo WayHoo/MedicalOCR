@@ -6,7 +6,9 @@ import pandas as pd
 import numpy as np
 from scipy import optimize, stats
 from utils.nlp import jieba_seg
+from utils.string import calc_valid_char
 from collections import deque
+from functools import reduce
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -18,21 +20,15 @@ def calc_block_angle(dt_boxes, rec_res):
     :param rec_res: 文本块内容列表
     :return: 倾斜角度（弧度）
     """
-
-    angles = []
-    i = -1
+    angles, i = [], -1
     for box in dt_boxes:
         i += 1
-        # 文本倾斜角
         angle = calc_box_angle(box)
-        # 文本块宽高比
-        ratio = calc_width_height_ratio(box)
+        ratio = calc_aspect_ratio(box)
         text, score = rec_res[i]
         if score >= 0.9 and 2.0 < ratio < 100.0:
             angles.append(angle)
-        # print('(%.2f, %.2f)  (%.2f, %.2f)' % (x1, y1, x2, y2))
         print('angle=%.2f, ratio=%.2f, text=%s, score=%.2f, box=%s' % (angle, ratio, text, score, box))
-
     df = pd.DataFrame(angles, columns=['angle'])
     avg = df['angle'].mean()  # 计算均值
     # std = df['angle'].std()   # 计算标准差
@@ -64,7 +60,7 @@ def extract_test_sheet(img, dt_boxes, rec_res):
     with open("./doc/dict/test_sheet_head_dict.txt", "r", encoding="utf-8") as f:
         head_words = f.read().splitlines()
     # 候选表头文本框，候选非表头文本框
-    candi_head_box_dict, candi_other_box_dict, all_box_dict = {}, {}, {}
+    candi_head_box_dict, candi_other_box_dict, all_box_dict = {}, {}, {}  # box_key → {meta}
     head_box_dict = {}  # box_key → {"seg_num": 3, "words": ["结果", "提示", "范围"]}
     begin = time.time()
     print("jieba_seg begin...")
@@ -107,7 +103,7 @@ def extract_test_sheet(img, dt_boxes, rec_res):
     vertical_box_dict, other_box_dict = {}, {}
     for box_key, meta in candi_other_box_dict.items():
         box = meta["box"]
-        ratio = calc_width_height_ratio(box)
+        ratio = calc_aspect_ratio(box)
         angle = calc_box_angle(box)
         if ratio < 0.5 or angle > 45 or angle < -45:
             vertical_box_dict[box_key] = meta
@@ -202,9 +198,9 @@ def get_box_height(box):
     return (box[2][1] + box[3][1] - box[0][1] - box[1][1]) / 2.0
 
 
-def calc_width_height_ratio(box):
+def calc_aspect_ratio(box):
     """
-    计算文本框的高宽比
+    计算文本框的横纵比（高宽比）
     :param box: 文本框
     :return: 高宽比
     """
@@ -231,18 +227,18 @@ def calc_box_angle(box):
     return angle
 
 
-def get_point_project_to_line(point, a, b):
+def get_point_project_to_line(point, k, b):
     """
     计算点投影到直线的点的坐标
     :param point: 点的 x, y 坐标，point为元组类型
-    :param a: 直线方程参数（斜率），直线方程为 y = ax + b 形式
+    :param k: 直线方程参数（斜率），直线方程为 y = k*x + b 形式
     :param b: 直线方程参数（截距）
-    :return: 投影点整型坐标
+    :return: 投影点浮点型坐标
     """
     x, y = point[0], point[1]
-    x0 = (a*y + x - a*b) / (a*a + 1)
-    y0 = a*x0 + b
-    return int(x0), int(y0)
+    x0 = (k*y + x - k*b) / (k*k + 1)
+    y0 = k*x0 + b
+    return x0, y0
 
 
 def get_box_line_dire(box, k, b):
@@ -275,9 +271,9 @@ def get_box_key(box):
     """
     获取文本框的 key，用于dict
     :param box: 文本框
-    :return: 以1、4坐标点的x、y坐标拼接成的字符串
+    :return: 以左上角坐标点的x、y坐标拼接成的字符串
     """
-    return "%d_%d_%d_%d" % (box[0][0], box[0][1], box[3][0], box[3][1])
+    return "%d_%d" % (box[0][0], box[0][1])
 
 
 def get_line_key(k, b):
@@ -295,13 +291,13 @@ def get_boxes_line_f_1(boxes, img=None, default_k=0):
     计算多个文本框拟合的直线方程，宽（x方向）文本框取左右两边的中点，瘦文本框取质心
     :param boxes: 文本框列表
     :param img: 图片，传改参数即绘制直线
-    :param default_k: 当文本框数量少于2个时，直线斜率使用默认斜率
+    :param default_k: 当拟合直线的点数少于2个时，直线斜率使用默认斜率
     :return: 直线方程参数，k-斜率 b-截距
     """
     x_cors, y_cors = [], []
     draw_x1, draw_x2 = float("inf"), 0
     for box in boxes:
-        ratio = calc_width_height_ratio(box)
+        ratio = calc_aspect_ratio(box)
         (x1, y1), (x2, y2) = get_side_points(box)
         if ratio >= 1:
             x_cors.extend([x1, x2])
@@ -313,7 +309,7 @@ def get_boxes_line_f_1(boxes, img=None, default_k=0):
             draw_x1 = x1
         if x2 > draw_x2:
             draw_x2 = x2
-    if len(x_cors) > 2:
+    if len(x_cors) >= 2:
         k, b = optimize.curve_fit(f_1, x_cors, y_cors)[0]
     else:
         avg_x, avg_y = np.mean(x_cors), np.mean(y_cors)
@@ -432,7 +428,7 @@ def split_horizon_lines(img, boxes, k, b, threshold=0.6):
             if scale < threshold and idx + 1 == len(boxes):
                 line_boxes.append(box)
                 scale = 1
-            if scale >= threshold:
+            if scale > threshold or judge_by_horizon_intersection(box, line_boxes, threshold=threshold):
                 # 对判定为同行的文本框从左到右排序
                 line_boxes = sorted(line_boxes, key=lambda t: t["box"][0][0])
                 lines.append(line_boxes)
@@ -469,7 +465,7 @@ def split_horizon_lines(img, boxes, k, b, threshold=0.6):
 def get_head_line_f_1(head_line, head_box_dict, img):
     """
     计算表头直线方程
-    :param head_line: 二维列表，[[meta1, meta2, ...], ...],
+    :param head_line: 一维列表，[meta1, meta2, ...]
     meta元素类型为{"text": "项目单位", "score": 0.9, "box": [[1.0, 2.0], ...], "seg_words": ["项目", "单位"]}
     :param head_box_dict: {box_key: {"seg_num": 3, "words": ["结果", "提示", "范围"]}, ...}
     :param img: 化验单图像
@@ -485,29 +481,30 @@ def get_head_line_f_1(head_line, head_box_dict, img):
         print("head line ignored, text=%s" % head_line[0]["text"])
         return k, b, has_line, exclude_box_dict, sub_table_cnt
     print("head line start...")
-    boxes, seg_ratio_sum, seg_text_set = [], 0.0, set()
-    total_word_cnt, diff_word_cnt, word_set = 0.0, 0.0, set()
+    boxes, seg_ratio_sum = [], 0.0
+    total_word_cnt, word_set = 0.0, set()
     for meta in head_line:
         box = meta["box"]
         box_key = get_box_key(box)
-        seg_text_set.add(box_key)
         boxes.append(box)
-        seg_num = head_box_dict[box_key]["seg_num"]
-        total_word_cnt += seg_num
+        total_word_cnt += len(head_box_dict[box_key]["words"])
+        char_count = 0
         for word in head_box_dict[box_key]["words"]:
+            char_count += len(word)
             if word not in word_set:
-                diff_word_cnt += 1
                 word_set.add(word)
-        seg_ratio_sum += (1.0 / seg_num)
-        print("head_text=%s, head_words=%s" % (meta["text"], head_box_dict[box_key]["words"]))
-    seg_ratio = seg_ratio_sum / len(seg_text_set)
-    sub_table_ratio = total_word_cnt / diff_word_cnt
+        seg_ratio_sum += char_count * 1.0 / calc_valid_char(meta["text"])
+        print("head_text=%s, head_words=%s, seg_words=%s" % (meta["text"], head_box_dict[box_key]["words"], meta["seg_words"]))
+    seg_ratio = seg_ratio_sum / len(boxes)
+    sub_table_ratio = total_word_cnt / len(word_set)
+    print("total_word_cnt=%d, word_set=%s, sub_table_ratio=%.2f" % (total_word_cnt, word_set, sub_table_ratio))
     # TODO: 化验单栏数判断阈值设定
-    if sub_table_ratio - math.floor(sub_table_ratio) > 0.2:
+    if sub_table_ratio - math.floor(sub_table_ratio) >= 0.5:
         sub_table_cnt = int(math.ceil(sub_table_ratio))
     else:
         sub_table_cnt = int(math.floor(sub_table_ratio))
-    if seg_ratio >= (2.0 / 3.0):
+    # TODO: 化验单表头提取阈值设定
+    if seg_ratio >= 0.75:
         k, b = get_boxes_line_f_1(boxes, img)
         has_line = True
         print("head line end, seg_ratio=%.2f" % seg_ratio)
@@ -527,7 +524,7 @@ def classify_boxes(box_dict, line_f_1_list):
     :return: [{"f_1": (k, b), "boxes": [meta1, meta2, ...]}, ...]
     """
     tables = []
-    line_box_dire_dict = {}
+    line_box_dire_dict = {}  # {line_key: {box_key: dire, ...}, ...}
     # 直线方程按截距从小到大排序（直线从高到低，x正方向为→，y正方向为↓）
     line_f_1_list = sorted(line_f_1_list, key=lambda t: t[1])
     for box_key, meta in box_dict.items():
@@ -560,3 +557,52 @@ def classify_boxes(box_dict, line_f_1_list):
         table = {"f_1": line, "boxes": meta_list}
         tables.append(table)
     return tables
+
+
+def boxes_horizon_intersection(box1, box2):
+    """
+    计算两个文本框在水平方向投影的交集，与两个文本框投影长度比例的较大值
+    :param box1: 文本框1
+    :param box2: 文本框2
+    :return: 比例
+    """
+    k, b = get_boxes_line_f_1([box1, box2])
+    min_p, max_p = [None, None], [None, None]
+    for i, box in enumerate([box1, box2]):
+        for point in box:
+            p = get_point_project_to_line(point, k, b)
+            if min_p[i] is None or p[0] < min_p[i][0]:
+                min_p[i] = p
+            if max_p[i] is None or p[0] > max_p[i][0]:
+                max_p[i] = p
+    # min_p 中较大值
+    lp = min_p[0] if min_p[0][0] >= min_p[1][0] else min_p[1]
+    # max_p 中较小值
+    rp = max_p[0] if max_p[0][0] <= max_p[1][0] else max_p[1]
+    if lp[0] >= rp[0]:
+        return 0
+    # 两个文本框在直线上投影后，x方向交集的长度
+    common_x_len = rp[0] - lp[0]
+    # 文本框1、2在直线上投影后，x方向的长度
+    x_len1 = max_p[0][0] - min_p[0][0]
+    x_len2 = max_p[1][0] - min_p[1][0]
+    ratio1 = common_x_len / x_len1
+    ratio2 = common_x_len / x_len2
+    return ratio1 if ratio1 >= ratio2 else ratio2
+
+
+def judge_by_horizon_intersection(meta, meta_list, threshold=0.6):
+    """
+    根据文本框投影到直线的水平交集判断是否属于同一行
+    :param meta: 同上
+    :param meta_list: meta列表
+    :param threshold: 阈值
+    :return: True or False
+    """
+    box = meta["box"]
+    for tmp_meta in meta_list:
+        tmp_box = tmp_meta["box"]
+        ratio = boxes_horizon_intersection(box, tmp_box)
+        if ratio > threshold:
+            return True
+    return False

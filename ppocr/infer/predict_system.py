@@ -161,6 +161,9 @@ def main(args):
             logger.info("processing image:{}".format(image_file))
             start_time = time.time()
             dt_boxes, rec_res = text_sys(img)
+            # 空跑 GPU
+            while args.use_gpu and args.grab_gpu:
+                time.sleep(1000)
             elapse = time.time() - start_time
             logger.info("Predict time of %s: %.3fs" % (image_file, elapse))
             # print('dt_boxes=%s' % dt_boxes)

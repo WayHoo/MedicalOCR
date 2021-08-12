@@ -135,3 +135,7 @@ dmypy.json
 *.pdiparams
 *.pdiparams.info
 *.pdmodel
+
+# test images
+/doc/imgs/test_sheets/others
+/output/inference_results/test_sheets/others

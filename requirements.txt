@@ -10,3 +10,4 @@ visualdl
 python-Levenshtein
 pandas
 jieba
+openpyxl

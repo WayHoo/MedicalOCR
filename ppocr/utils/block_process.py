@@ -7,30 +7,14 @@ import numpy as np
 from scipy import optimize, stats
 from utils.nlp import jieba_seg
 from utils.u_str import calc_valid_char, is_chinese, str_len
+from utils.sheet_process import parse_sheet_to_excel
+from utils.config import get_head_words_dict, get_key_words_set
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
 
 
-GL_HEAD_WORDS = dict()  # {text: attr}
-GL_HEAD_ATTR_DICT = dict()  # {attr: text}
-GL_KV_WORDS = set()
-
-# 化验栏标题
-with open("./doc/dict/test_sheet_head_dict.txt", "r", encoding="utf-8") as f:
-    tmp_words = f.read().splitlines()
-    val = 0
-    for word in tmp_words:
-        if word.startswith('#'):
-            val = int(word[-1])
-            GL_HEAD_ATTR_DICT[val] = word[1:-2]
-            continue
-        GL_HEAD_WORDS[word] = val
-
-# 化验单key/value关键词
-with open("./doc/dict/test_sheet_kv_dict.txt", "r", encoding="utf-8") as f:
-    tmp_words = f.read().splitlines()
-    for word in tmp_words:
-        GL_KV_WORDS.add(word)
+GL_HEAD_WORDS = get_head_words_dict()
+GL_KV_WORDS = get_key_words_set()
 
 
 def calc_block_angle(dt_boxes, rec_res):
@@ -69,10 +53,12 @@ def block_seg(img, dt_boxes):
     return cv2.bitwise_or(img, mask)
 
 
-def extract_test_sheet(img, dt_boxes, rec_res):
+def extract_test_sheet(img, args, file_name, dt_boxes, rec_res):
     """
     提取化验单内容
     :param img: 化验单图像
+    :param args: 配置参数
+    :param file_name: 化验单文件名称，不包含后缀，例如 test_sheet (1)
     :param dt_boxes: 检测文本框
     :param rec_res: 识别文本框
     :return: None
@@ -98,7 +84,7 @@ def extract_test_sheet(img, dt_boxes, rec_res):
                     head_box_dict[box_key] = {"seg_num": len(words), "words": [upper_word]}
                     candi_head_box_dict[box_key] = meta
                 else:
-                    head_box_dict[box_key]["words"].append(word)
+                    head_box_dict[box_key]["words"].append(upper_word)
                 print("word=%s, text=%s, box=%s" % (word, text, box))
         if box_key not in candi_head_box_dict.keys():
             candi_other_box_dict[box_key] = meta
@@ -131,19 +117,21 @@ def extract_test_sheet(img, dt_boxes, rec_res):
         else:
             other_box_dict[box_key] = meta
     tables = classify_boxes(other_box_dict, line_f_1_list)
-    for table in tables:
+    for i, table in enumerate(tables):
         k, b = table["f_1"]
         boxes = table["boxes"]
         line_key = get_line_key(k, b)
         sub_table_cnt = table_cnt_dict[line_key]
         print("%d栏化验单" % sub_table_cnt)
         lines = split_horizon_lines(img, boxes, k, b)
-        split_vertical_lines(lines, head_line_dict[line_key], head_box_dict)
+        csv_head_words = split_vertical_lines(lines, head_line_dict[line_key], head_box_dict)
         for idx, line in enumerate(lines):
             print("[LINE %d]............................" % idx)
             for meta in line:
                 head_attrs = meta["attrs"] if "attrs" in meta else []
                 print("text=%s, attrs=%s" % (meta["text"], head_attrs))
+        sheet_name = "化验单"+str(i+1) if len(tables) > 1 else "化验单"
+        parse_sheet_to_excel(csv_head_words, lines, GL_HEAD_WORDS, file_name, args.save_path, sheet_name)
     return
 
 
@@ -414,6 +402,7 @@ def extract_head_lines(candi_head_box_dict):
                 tmp_set.add(tmp_key)
                 boxes.append(candi_head_box_dict[tmp_key])
         if len(boxes) > 0:
+            boxes = sorted(boxes, key=lambda t: t["box"][0][0])
             final_lines.append(boxes)
     return final_lines
 
@@ -737,17 +726,19 @@ def merge_boxes(boxes):
 
 def split_vertical_lines(lines, head_line, head_box_dict):
     """
-    在水平切分化验栏的基础上，再垂直切分化验栏
+    在水平切分化验栏的基础上，再垂直切分化验栏。会修改入参lines中的meta信息，标记上所属表头类别，如meta["attrs"] = ["NO", "项目"]
     :param lines: 化验表中处于同一水平直线上的文本框，[meta1, meta2, ...]
     :param head_line: 表头文本框，[meta1, meta2, ...]
     :param head_box_dict: 表头文本框dict，box_key → {"seg_num": 3, "words": ["NO", "结果", "提示"]}
-    :return:
+    :return: CSV表头列表，例如 ["NO", "项目", "结果", "单位", "参考范围"]
     """
     split_head_metas = []
+    csv_head_words = []  # CSV表头
     for head_meta in head_line:
         box = head_meta["box"]
         box_key = get_box_key(box)
         seg_words = head_box_dict[box_key]["words"]
+        csv_head_words.extend(seg_words)
         split_head_metas.extend(split_meta(box, seg_words))
     for head_meta in split_head_metas:
         candi_boxes = []
@@ -756,6 +747,8 @@ def split_vertical_lines(lines, head_line, head_box_dict):
             top_meta = get_top_horizon_overlap(head_meta, line, threshold=0.3, mode="AVG")
             if top_meta is not None:
                 candi_boxes.append(top_meta["box"])
+        if len(candi_boxes) == 0:
+            continue
         # TODO: 剔除候选文本框异常值
         merged_box = merge_boxes(candi_boxes)
         merged_meta = {"box": merged_box}
@@ -768,4 +761,4 @@ def split_vertical_lines(lines, head_line, head_box_dict):
                 top_meta["attrs"].append(head_meta["text"])
             else:
                 top_meta["attrs"] = [head_meta["text"]]
-    return
+    return csv_head_words

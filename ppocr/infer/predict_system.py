@@ -19,7 +19,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "8"
 
 import cv2
 import copy
@@ -169,7 +169,7 @@ def main(args):
             # print('dt_boxes=%s' % dt_boxes)
             # calc_block_angle(dt_boxes, rec_res)
             # post_process_img = block_seg(img, dt_boxes)
-            extract_test_sheet(img, dt_boxes, rec_res)
+            extract_test_sheet(img, args, os.path.basename(image_file).split(".")[0], dt_boxes, rec_res)
 
             # out = []
             # import json
@@ -208,7 +208,7 @@ def main(args):
                     drop_score=drop_score,
                     font_path=font_path)
                 # draw_img_save = "./output/inference_results/"
-                draw_img_save = "./output/inference_results/test_sheets/batch_001/"
+                draw_img_save = args.save_path
                 if not os.path.exists(draw_img_save):
                     os.makedirs(draw_img_save)
                 cv2.imwrite(

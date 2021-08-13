@@ -1,18 +1,18 @@
 # coding=utf-8
-from utils.config import get_head_words_dict
+from utils.config import get_sort_weight
 from utils.xlsx import write_excel_xlsx
 
 __all__ = ["parse_sheet_to_excel"]
 
 
-def parse_sheet_header(heads, head_weights):
+def parse_sheet_header(heads):
     word_set = set()
     for word in heads:
         if word not in word_set:
             word_set.add(word)
     visited, idx = {heads[0]}, 1
     while idx < len(heads):
-        if heads[idx] in visited or head_weights[heads[idx]] < head_weights[heads[idx - 1]]:
+        if heads[idx] in visited or get_sort_weight(heads[idx]) < get_sort_weight(heads[idx-1]):
             break
         idx += 1
     if idx == len(heads):
@@ -33,7 +33,7 @@ def parse_sheet_header(heads, head_weights):
         elif a in part2_set:
             merged.append(b)
             idx2 += 1
-        elif head_weights[a] <= head_weights[b]:
+        elif get_sort_weight(a) <= get_sort_weight(b):
             merged.append(a)
             idx1 += 1
         else:
@@ -48,15 +48,14 @@ def parse_sheet_header(heads, head_weights):
     return merged, 2
 
 
-def parse_sheet_data(heads, body_lines, head_weights):
+def parse_sheet_data(heads, body_lines):
     """
     解析化验单内容，如果为双栏，解析为单栏
     :param heads: 化验单表头
     :param body_lines: 化验单化验结果行
-    :param head_weights: 化验单表头关键词排序权重
     :return: 可写入 excel 的化验单内容
     """
-    merged_heads, sheet_cnt = parse_sheet_header(heads, head_weights)
+    merged_heads, sheet_cnt = parse_sheet_header(heads)
     data = [merged_heads]
     sheets = [[], []]
     for line in body_lines:
@@ -83,12 +82,13 @@ def parse_sheet_data(heads, body_lines, head_weights):
     return data
 
 
-def parse_sheet_to_excel(heads, body_lines, head_weights, file_name,
-                         file_path="./output/inference_results/test_sheets/", sheet_name="化验单"):
+def parse_sheet_to_excel(heads, body_lines, file_name,
+                         file_path="./output/inference_results/test_sheets/",
+                         sheet_name="化验单"):
     if len(heads) == 0 or len(body_lines) == 0 or file_name == "":
         print("illegal params to write_excel_sheet!!!")
         return
-    data = parse_sheet_data(heads, body_lines, head_weights)
+    data = parse_sheet_data(heads, body_lines)
     if len(data) == 0:
         print("no valid data to write excel!!!")
         return
@@ -97,7 +97,6 @@ def parse_sheet_to_excel(heads, body_lines, head_weights, file_name,
 
 
 if __name__ == "__main__":
-    head_weights = get_head_words_dict()
     origin_heads = ["项目名称", "英文缩写", "结果", "单位", "参考区间", "NO", "英文缩写", "单位", "参考区间"]
     body = [[{"text": "钾离子(K)", "attrs": ["项目名称", "英文缩写"]},
              {"text": "4.20", "attrs": ["结果"]}, {"text": "mmol/L", "attrs": ["单位"]},
@@ -109,6 +108,6 @@ if __name__ == "__main__":
              {"text": "137-147", "attrs": ["参考区间"]}, {"text": "4", "attrs": ["NO"]},
              {"text": "UA", "attrs": ["英文缩写"]}, {"text": "U/L", "attrs": ["单位"]},
              {"text": "3.0-6.8", "attrs": ["参考区间"]}]]
-    data = parse_sheet_data(origin_heads, body, head_weights)
+    data = parse_sheet_data(origin_heads, body)
     for d in data:
         print(d)

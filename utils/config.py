@@ -1,31 +1,52 @@
 # coding=utf-8
+import json
 
 
-def get_head_words_dict():
-    """
-    获取化验栏标题关键词dict
-    :return: {word: sort_weight}，例如{"序号": 1, "项目名称": 1, "结果": 2}
-    """
-    head_words = {}
-    with open("./doc/dict/test_sheet_head_dict.txt", "r", encoding="utf-8") as f:
-        words = f.read().splitlines()
-        sort_weight = 0
-        for word in words:
-            if word.startswith('#'):
-                sort_weight = int(word[-1])
-                continue
-            head_words[word] = sort_weight
-    return head_words
+with open("./doc/dict/test_sheet_head.json", "r", encoding="utf-8") as f:
+    print("start load test_sheet_head.json ......")
+    GL_HEAD_WORDS = {}
+    head_words = json.load(f)
+    for item in head_words:
+        for word in item["words"]:
+            GL_HEAD_WORDS[word] = (item["id"], item["sort_weight"])
 
 
-def get_key_words_set():
+with open("./doc/dict/test_sheet_key_words.json", "r", encoding="utf-8") as f:
+    print("start load test_sheet_key_words.json ......")
+    key_words = json.load(f)
+    GL_KEY_WORDS = set(key_words)
+
+
+def is_cfg_head_word(word):
     """
-    获取化验单中常出现的关键词集合
-    :return: 关键词集合，如 {"项目名称", "姓名", "科室"}
+    检查给定词语是否在配置的表头关键词中
+    :param word: 字符串
+    :return: True or False
     """
-    key_words = set()
-    with open("./doc/dict/test_sheet_kv_dict.txt", "r", encoding="utf-8") as f:
-        words = f.read().splitlines()
-        for word in words:
-            key_words.add(word)
-    return key_words
+    return word in GL_HEAD_WORDS
+
+
+def get_sort_weight(word):
+    """
+    获取表头词语的排序权重
+    :param word: 字符串
+    :return: 整型的排序权重
+    """
+    if word in GL_HEAD_WORDS:
+        return GL_HEAD_WORDS[word][1]
+    return 0
+
+
+def is_cfg_key_word(word):
+    """
+    判断给定词语是否在配置的关键词中
+    :param word: 字符串
+    :return: True or False
+    """
+    return word in GL_KEY_WORDS
+
+
+if __name__ == "__main__":
+    print(GL_HEAD_WORDS)
+    print(is_cfg_head_word("项目全称"))
+    print(GL_KEY_WORDS)

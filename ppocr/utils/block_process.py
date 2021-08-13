@@ -6,15 +6,11 @@ import pandas as pd
 import numpy as np
 from scipy import optimize, stats
 from utils.nlp import jieba_seg
-from utils.u_str import calc_valid_char, is_chinese, str_len
+from utils.u_str import calc_valid_char, str_len
 from utils.sheet_process import parse_sheet_to_excel
-from utils.config import get_head_words_dict, get_key_words_set
+from utils.config import is_cfg_head_word, is_cfg_key_word
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
-
-
-GL_HEAD_WORDS = get_head_words_dict()
-GL_KV_WORDS = get_key_words_set()
 
 
 def calc_block_angle(dt_boxes, rec_res):
@@ -79,7 +75,7 @@ def extract_test_sheet(img, args, file_name, dt_boxes, rec_res):
         for word in words:
             # 英文单词转换为大写
             upper_word = word.upper()
-            if upper_word in GL_HEAD_WORDS:
+            if is_cfg_head_word(upper_word):
                 if box_key not in head_box_dict.keys():
                     head_box_dict[box_key] = {"seg_num": len(words), "words": [upper_word]}
                     candi_head_box_dict[box_key] = meta
@@ -129,9 +125,9 @@ def extract_test_sheet(img, args, file_name, dt_boxes, rec_res):
             print("[LINE %d]............................" % idx)
             for meta in line:
                 head_attrs = meta["attrs"] if "attrs" in meta else []
-                print("text=%s, attrs=%s" % (meta["text"], head_attrs))
+                print("text=%s, seg_words=%s, attrs=%s, score=%.2f" % (meta["text"], meta["seg_words"], head_attrs, meta["score"]))
         sheet_name = "化验单"+str(i+1) if len(tables) > 1 else "化验单"
-        parse_sheet_to_excel(csv_head_words, lines, GL_HEAD_WORDS, file_name, args.save_path, sheet_name)
+        parse_sheet_to_excel(csv_head_words, lines, file_name, args.save_path, sheet_name)
     return
 
 
@@ -459,14 +455,14 @@ def split_horizon_lines(img, boxes, k, b, threshold=0.6):
                     if avg_line_gap != 0.0 and line_gap >= 2 * avg_line_gap:
                         line_split_fin = True
                     else:
-                        kv_word_cnt, tmp_kv_words = 0, []
+                        key_word_cnt, tmp_key_words = 0, []
                         for t in line_boxes:
                             for w in t["seg_words"]:
-                                if w in GL_KV_WORDS:
-                                    kv_word_cnt += 1
-                                    tmp_kv_words.append(w)
-                        if kv_word_cnt > 0:
-                            print("kv_words in current line boxes, kv_words=%s" % tmp_kv_words)
+                                if is_cfg_key_word(w):
+                                    key_word_cnt += 1
+                                    tmp_key_words.append(w)
+                        if key_word_cnt > 0:
+                            print("key_words in current line boxes, key_words=%s" % tmp_key_words)
                         else:
                             lines.append(line_boxes)
                             line_gap_sum += line_gap

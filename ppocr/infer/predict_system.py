@@ -1,16 +1,3 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import os
 import sys
 
@@ -30,6 +17,7 @@ import ppocr.infer.utility as utility
 import ppocr.infer.predict_rec as predict_rec
 import ppocr.infer.predict_det as predict_det
 import ppocr.infer.predict_cls as predict_cls
+import ppocr.infer.predict_agl as predict_agl
 from ppocr.utils.utility import get_image_file_list, check_and_read_gif
 from ppocr.utils.logging import get_logger
 from ppocr.infer.utility import draw_ocr_box_txt
@@ -43,13 +31,16 @@ class TextSystem(object):
     def __init__(self, args):
         self.text_detector = predict_det.TextDetector(args)
         self.text_recognizer = predict_rec.TextRecognizer(args)
+        self.use_angle_det = args.use_angle_det
         self.use_angle_cls = args.use_angle_cls
         self.drop_score = args.drop_score
         if self.use_angle_cls:
             self.text_classifier = predict_cls.TextClassifier(args)
+        if self.use_angle_det:
+            self.angle_detector = predict_agl.AngleDetector(args)
 
     def get_rotate_crop_image(self, img, points):
-        '''
+        """
         img_height, img_width = img.shape[0:2]
         left = int(np.min(points[:, 0]))
         right = int(np.max(points[:, 0]))
@@ -58,7 +49,7 @@ class TextSystem(object):
         img_crop = img[top:bottom, left:right, :].copy()
         points[:, 0] = points[:, 0] - left
         points[:, 1] = points[:, 1] - top
-        '''
+        """
         img_crop_width = int(
             max(
                 np.linalg.norm(points[0] - points[1]),
@@ -77,9 +68,11 @@ class TextSystem(object):
             borderMode=cv2.BORDER_REPLICATE,
             flags=cv2.INTER_CUBIC)
         dst_img_height, dst_img_width = dst_img.shape[0:2]
+        rotated = False  # whether has it been rotated
         if dst_img_height * 1.0 / dst_img_width >= 1.5:
-            dst_img = np.rot90(dst_img)
-        return dst_img
+            dst_img = np.rot90(dst_img)  # rotate 90° counterclockwise
+            rotated = True
+        return dst_img, rotated
 
     def print_draw_crop_rec_res(self, img_crop_list, rec_res):
         bbox_num = len(img_crop_list)
@@ -88,37 +81,52 @@ class TextSystem(object):
             logger.info(bno, rec_res[bno])
 
     def __call__(self, img):
-        ori_im = img.copy()
-        dt_boxes, elapse = self.text_detector(img)
-        logger.info("dt_boxes num : {}, elapse : {}".format(
-            len(dt_boxes), elapse))
-        if dt_boxes is None:
-            return None, None
-        img_crop_list = []
+        save_path = "./output/inference_results/test_sheets/angle/"
+        if self.use_angle_det:
+            angle, img = self.angle_detector(img)
+            # img_path = os.path.join(save_path, "agl_det_res.jpg")
+            # cv2.imwrite(img_path, img)
 
-        dt_boxes = sorted_boxes(dt_boxes)
+        round_idx, max_round = 0, 2
+        while round_idx < max_round:
+            round_idx += 1
+            ori_im = img.copy()
+            dt_boxes, elapse = self.text_detector(img)
+            logger.info("dt_boxes num: {}, elapse: {}".format(len(dt_boxes), elapse))
+            if dt_boxes is None:
+                return None, None
+            img_crop_list = []
+            det_rotate_list = []
+            dt_boxes = sorted_boxes(dt_boxes)
 
-        for bno in range(len(dt_boxes)):
-            tmp_box = copy.deepcopy(dt_boxes[bno])
-            img_crop = self.get_rotate_crop_image(ori_im, tmp_box)
-            img_crop_list.append(img_crop)
-        if self.use_angle_cls:
-            img_crop_list, angle_list, elapse = self.text_classifier(
-                img_crop_list)
-            logger.info("cls num  : {}, elapse : {}".format(
-                len(img_crop_list), elapse))
+            for bno in range(len(dt_boxes)):
+                tmp_box = copy.deepcopy(dt_boxes[bno])
+                img_crop, rotated = self.get_rotate_crop_image(ori_im, tmp_box)
+                img_crop_list.append(img_crop)
+                det_rotate_list.append(rotated)
+            if self.use_angle_cls:
+                img_crop_list, angle_list, cls_rotate, elapse = self.text_classifier(
+                    img_crop_list, det_rotate_list)
+                logger.info("cls num: {}, cls_rotate: {}°, elapse: {}".
+                            format(len(img_crop_list), cls_rotate, elapse))
+                if cls_rotate != 0:
+                    rotate_param = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180,
+                                    270: cv2.ROTATE_90_COUNTERCLOCKWISE}
+                    img = cv2.rotate(img, rotate_param[cls_rotate])
+                    # img_path = os.path.join(save_path, "agl_det_cls_res.jpg")
+                    # cv2.imwrite(img_path, img)
+                    continue
 
-        rec_res, elapse = self.text_recognizer(img_crop_list)
-        logger.info("rec_res num  : {}, elapse : {}".format(
-            len(rec_res), elapse))
-        # self.print_draw_crop_rec_res(img_crop_list, rec_res)
-        filter_boxes, filter_rec_res = [], []
-        for box, rec_reuslt in zip(dt_boxes, rec_res):
-            text, score = rec_reuslt
-            if score >= self.drop_score:
-                filter_boxes.append(box)
-                filter_rec_res.append(rec_reuslt)
-        return filter_boxes, filter_rec_res
+            rec_res, elapse = self.text_recognizer(img_crop_list)
+            logger.info("rec_res num: {}, elapse: {}".format(len(rec_res), elapse))
+            # self.print_draw_crop_rec_res(img_crop_list, rec_res)
+            filter_boxes, filter_rec_res = [], []
+            for box, rec_reuslt in zip(dt_boxes, rec_res):
+                text, score = rec_reuslt
+                if score >= self.drop_score:
+                    filter_boxes.append(box)
+                    filter_rec_res.append(rec_reuslt)
+            return filter_boxes, filter_rec_res, img
 
 
 def sorted_boxes(dt_boxes):
@@ -153,14 +161,13 @@ def main(args):
             img, flag = check_and_read_gif(image_file)
             if not flag:
                 # TODO: image compress
-                # img = imread_compress(image_file, compress=args.use_gpu)
                 img = imread_compress(image_file, compress=False)
             if img is None:
                 logger.info("error in loading image:{}".format(image_file))
                 continue
             logger.info("processing image:{}".format(image_file))
             start_time = time.time()
-            dt_boxes, rec_res = text_sys(img)
+            dt_boxes, rec_res, img = text_sys(img)
             # 空跑 GPU
             while args.use_gpu and args.grab_gpu:
                 time.sleep(1000)

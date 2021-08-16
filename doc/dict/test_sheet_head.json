@@ -2,6 +2,7 @@
     {
         "id":1,
         "sort_weight":1,
+        "category": "number",
         "standard_name":"序号",
         "words":[
             "序号",
@@ -13,6 +14,7 @@
     {
         "id":2,
         "sort_weight":2,
+        "category": "item",
         "standard_name":"项目名称",
         "words":[
             "项目名称",
@@ -40,6 +42,7 @@
     {
         "id":3,
         "sort_weight":2,
+        "category": "word",
         "standard_name":"简称",
         "words":[
             "英文对照",
@@ -64,6 +67,7 @@
     {
         "id":4,
         "sort_weight":3,
+        "category": "number",
         "standard_name":"结果",
         "words":[
             "结果",
@@ -84,6 +88,7 @@
     {
         "id":5,
         "sort_weight":3,
+        "category": "sign",
         "standard_name":"提示",
         "words":[
             "标志",
@@ -104,6 +109,7 @@
     {
         "id":6,
         "sort_weight":3,
+        "category": "unit",
         "standard_name":"单位",
         "words":[
             "单位",
@@ -114,6 +120,7 @@
     {
         "id":7,
         "sort_weight":3,
+        "category": "range",
         "standard_name":"参考值",
         "words":[
             "参考范围",
@@ -132,6 +139,7 @@
     {
         "id":8,
         "sort_weight":4,
+        "category": "word",
         "standard_name":"检验方法",
         "words":[
             "方法学",

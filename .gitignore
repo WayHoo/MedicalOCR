@@ -135,7 +135,12 @@ dmypy.json
 *.pdiparams
 *.pdiparams.info
 *.pdmodel
+*.pb
+*.pbtxt
 
 # test images
 /doc/imgs/test_sheets/others
 /output/inference_results/test_sheets/others
+
+# linux nohup run output
+*.out

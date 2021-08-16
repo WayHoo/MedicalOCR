@@ -4,32 +4,30 @@ import re
 
 def match_item(source, category="unit"):
     if source == "":
-        return None
-    # pattern = re.compile(r"^-?([1-9]\d*\.\d*|0\.\d*[1-9]\d*|0?\.0+|0)$")
-    # res = pattern.findall(source)
+        return None, None
     if category == "unit":
-        pairs = [(r"[pP][eE][iI1l][uU]/m[1IlL]",    "PEIU/mL"),
-                    (r"10.?3/[1IlL]?",              "10^3/L"),
-                    (r"10.?6/[1IlL]?",              "10^6/L"),
-                    (r"10.?9/[1IlL]?",              "10^9/L"),
-                    (r"10.?12/[1IlL]?",             "10^12/L"),
-                    (r"mm[0oO][1IlL]/[1IlL]",       "mmol/L"),
-                    (r"[uμ]m[0oO][1IlL]/[1IlL]",    "μmol/L"),
-                    (r"m[0oO][1IlL]/[1IlL]",        "mol/L"),
-                    (r"m[I1][uU]/m[1IlL]",          "mIU/mL"),
-                    (r"[I1][uU]/m[1IlL]",           "IU/mL"),
-                    (r"mg/d[1IlL]",                 "mg/dL"),
-                    (r"ng/m[1IlL]",                 "ng/mL"),
-                    (r"mg/[1IlL]",                  "mg/L"),
-                    (r"[I1][uU]/[1IlL]",            "IU/L"),
-                    (r"s/c[o0O]",                   "s/co"),
-                    (r"[uU]/[1IlL]",                "U/L"),
-                    (r"[g/[1IlL]]",                 "g/L"),
-                    (r"[1IlL]/[1IlL]",              "L/L"),
-                    (r"/[hH][pP]",                  "/HP"),
-                    (r"f[1IlL]",                    "fL"),
-                    (r"pg",                         "pg"),
-                    ("%",                           "%")]
+        pairs = [(r"[pP][eE][iI1l][uU]/m[1IlL]", "PEIU/mL"),
+                 (r"10.?3/[1IlL]?",              "10^3/L"),
+                 (r"10.?6/[1IlL]?",              "10^6/L"),
+                 (r"10.?9/[1IlL]?",              "10^9/L"),
+                 (r"10.?12/[1IlL]?",             "10^12/L"),
+                 (r"mm[0oO][1IlL]/[1IlL]",       "mmol/L"),
+                 (r"[uμ]m[0oO][1IlL]/[1IlL]",    "μmol/L"),
+                 (r"m[0oO][1IlL]/[1IlL]",        "mol/L"),
+                 (r"m[I1][uU]/m[1IlL]",          "mIU/mL"),
+                 (r"[I1][uU]/m[1IlL]",           "IU/mL"),
+                 (r"mg/d[1IlL]",                 "mg/dL"),
+                 (r"ng/m[1IlL]",                 "ng/mL"),
+                 (r"mg/[1IlL]",                  "mg/L"),
+                 (r"[I1][uU]/[1IlL]",            "IU/L"),
+                 (r"s/c[o0O]",                   "s/co"),
+                 (r"[uU]/[1IlL]",                "U/L"),
+                 (r"[g/[1IlL]]",                 "g/L"),
+                 (r"[1IlL]/[1IlL]",              "L/L"),
+                 (r"/[hH][pP]",                  "/HP"),
+                 (r"f[1IlL]",                    "fL"),
+                 (r"pg",                         "pg"),
+                 ("%",                           "%")]
         for pair in pairs:
             pattern = re.compile(pair[0])
             m = re.search(pattern, source)
@@ -75,7 +73,6 @@ if __name__ == "__main__":
     match_units = []
     for candi in units:
         res = match_item(candi, category="unit")
-
         print(res)
     numbers = ["123.", "0.312", "0", "-12.1", "00012.3"]
     for num in numbers:

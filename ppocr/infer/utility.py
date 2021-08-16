@@ -1,17 +1,3 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import argparse
 import os
 import sys
@@ -39,7 +25,7 @@ def parse_args():
     parser.add_argument("--gpu_mem", type=int, default=1000)
 
     # params for text detector
-    parser.add_argument("--image_dir", type=str, default='./doc/imgs/test_sheets/'+base_path+"test_sheet (7).jpg")
+    parser.add_argument("--image_dir", type=str, default='./doc/imgs/test_sheets/'+base_path+"")
     parser.add_argument("--det_algorithm", type=str, default='DB')
     parser.add_argument("--det_model_dir", type=str, default='./inference/ch_ppocr_server_v2.0_det_infer/')
     parser.add_argument("--det_limit_side_len", type=float, default=960)
@@ -51,16 +37,6 @@ def parse_args():
     parser.add_argument("--det_db_unclip_ratio", type=float, default=1.6)
     parser.add_argument("--max_batch_size", type=int, default=10)
     parser.add_argument("--use_dilation", type=bool, default=False)
-
-    # EAST parmas
-    parser.add_argument("--det_east_score_thresh", type=float, default=0.8)
-    parser.add_argument("--det_east_cover_thresh", type=float, default=0.1)
-    parser.add_argument("--det_east_nms_thresh", type=float, default=0.2)
-
-    # SAST parmas
-    parser.add_argument("--det_sast_score_thresh", type=float, default=0.5)
-    parser.add_argument("--det_sast_nms_thresh", type=float, default=0.2)
-    parser.add_argument("--det_sast_polygon", type=bool, default=False)
 
     # params for text recognizer
     parser.add_argument("--rec_algorithm", type=str, default='CRNN')
@@ -81,6 +57,12 @@ def parse_args():
     parser.add_argument("--label_list", type=list, default=['0', '180'])
     parser.add_argument("--cls_batch_num", type=int, default=6)
     parser.add_argument("--cls_thresh", type=float, default=0.9)
+
+    # params for angle detector
+    parser.add_argument("--use_angle_det", type=str2bool, default=True)
+    parser.add_argument("--agl_det_model_dir", type=str, default='./inference/angle_det/')
+    parser.add_argument("--use_size_adjust", type=str2bool, default=False)
+    parser.add_argument("--adjust_thresh", type=float, default=0.05)
 
     parser.add_argument("--enable_mkldnn", type=str2bool, default=False)
     parser.add_argument("--use_pdserving", type=str2bool, default=False)

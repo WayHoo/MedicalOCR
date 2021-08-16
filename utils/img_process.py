@@ -104,11 +104,11 @@ def imread_compress(img_path, compress=True):
 
 
 if __name__ == "__main__":
-    img_path = r"./doc/imgs/check_report_07.jpg"
+    img_path = r"./doc/imgs/test_sheets/batch_001/test_sheet (1).jpg"
     src = cv2.imread(img_path)
     print("image shape =", src.shape)
-    # hough_p_line_detect(src.copy())
-    # auto_canny(src)
-    # fld_line_detect(src.copy())
+    hough_p_line_detect(src.copy())
+    auto_canny(src)
+    fld_line_detect(src.copy())
     img_res = imread_compress(img_path, compress=True)
     print("image shape after resize =", img_res.shape)

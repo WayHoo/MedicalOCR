@@ -3,12 +3,10 @@ import Levenshtein
 import time
 
 
-def calc_edit_dist(source, target):
-    return Levenshtein.distance(source, target)
-
-
 if __name__ == "__main__":
-    source = "内氨酸氨基转移酶"
-    target = "丙氨酸氨基转移酶"
-    dist = calc_edit_dist(source, target)
+    source = "内氨酸基传移酶e"
+    target = "丙氨酸氨基转移酶E"
+    dist = Levenshtein.distance(source, target)
     print("dist=%d" % dist)
+    ops = Levenshtein.editops(source, target)
+    print("ops=%s" % ops)

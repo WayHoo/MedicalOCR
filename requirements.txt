@@ -11,3 +11,5 @@ python-Levenshtein
 pandas
 jieba
 openpyxl
+fuzzychinese
+sklearn

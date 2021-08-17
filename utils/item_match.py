@@ -40,8 +40,8 @@ def match_item(source, category="unit"):
             m = re.search(pattern, source)
             if m is not None:
                 reg_str = m.group()
-                num = reg_str_to_int(reg_str)
-                return num, m.span()
+                num_str = reg_str_to_int(reg_str)
+                return num_str, m.span()
     return None, None
 
 

@@ -40,16 +40,6 @@ class TextSystem(object):
             self.angle_detector = predict_agl.AngleDetector(args)
 
     def get_rotate_crop_image(self, img, points):
-        """
-        img_height, img_width = img.shape[0:2]
-        left = int(np.min(points[:, 0]))
-        right = int(np.max(points[:, 0]))
-        top = int(np.min(points[:, 1]))
-        bottom = int(np.max(points[:, 1]))
-        img_crop = img[top:bottom, left:right, :].copy()
-        points[:, 0] = points[:, 0] - left
-        points[:, 1] = points[:, 1] - top
-        """
         img_crop_width = int(
             max(
                 np.linalg.norm(points[0] - points[1]),

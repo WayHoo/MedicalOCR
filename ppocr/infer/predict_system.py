@@ -21,7 +21,7 @@ import ppocr.infer.predict_agl as predict_agl
 from ppocr.utils.utility import get_image_file_list, check_and_read_gif
 from ppocr.utils.logging import get_logger
 from ppocr.infer.utility import draw_ocr_box_txt
-from ppocr.utils.block_process import calc_block_angle, block_seg, extract_test_sheet
+from kie.structure.block_process import extract_test_sheet
 from utils.img_process import imread_compress
 
 logger = get_logger()

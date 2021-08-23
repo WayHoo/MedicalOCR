@@ -104,5 +104,5 @@ if __name__ == '__main__':
         for line in lines:
             word = line.strip()
             tree.add(word)
-    res = tree.find("申该细胞绝对值", 3)
+    res = tree.find("RH(D)RH血型", 5)
     print(res)

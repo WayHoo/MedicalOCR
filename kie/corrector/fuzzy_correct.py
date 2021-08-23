@@ -1,3 +1,7 @@
+"""
+Reference: https://fuzzychinese.zenan-wang.com/
+GitHub: https://github.com/znwang25/fuzzychinese
+"""
 import os
 import logging
 import pandas as pd

@@ -137,13 +137,15 @@ def main(args):
         img, flag = check_and_read_gif(image_file)
         if not flag:
             img = cv2.imread(image_file)
+            img = cv2.resize(img, (32, 100))
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
             continue
         valid_image_file_list.append(image_file)
         img_list.append(img)
     try:
-        img_list, cls_res, predict_time = text_classifier(img_list)
+        det_rotate_list = [False]*len(img_list)
+        img_list, cls_res, final_rotate, predict_time = text_classifier(img_list, det_rotate_list)
     except:
         logger.info(traceback.format_exc())
         logger.info(

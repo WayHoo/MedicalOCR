@@ -8,7 +8,7 @@ with open("./doc/dict/test_sheet_head.json", "r", encoding="utf-8") as f:
     head_words = json.load(f)
     for item in head_words:
         for word in item["words"]:
-            GL_HEAD_WORDS[word] = (item["id"], item["sort_weight"])
+            GL_HEAD_WORDS[word] = (item["id"], item["sort_weight"], item["category"])
 
 
 with open("./doc/dict/test_sheet_key_words.json", "r", encoding="utf-8") as f:
@@ -35,6 +35,17 @@ def get_sort_weight(word):
     if word in GL_HEAD_WORDS:
         return GL_HEAD_WORDS[word][1]
     return 0
+
+
+def get_category(word):
+    """
+    获取表头词语的纠错类别
+    :param word: 字符串
+    :return: 纠错类别，取值为 ["number", "item", "word", "sign", "unit", "range"]
+    """
+    if word in GL_HEAD_WORDS:
+        return GL_HEAD_WORDS[word][2]
+    return ""
 
 
 def is_cfg_key_word(word):

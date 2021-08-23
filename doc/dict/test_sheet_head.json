@@ -1,17 +1,5 @@
 [
     {
-        "id":1,
-        "sort_weight":1,
-        "category": "number",
-        "standard_name":"序号",
-        "words":[
-            "序号",
-            "NO",
-            "编号",
-            "序"
-        ]
-    },
-    {
         "id":2,
         "sort_weight":2,
         "category": "item",
@@ -42,7 +30,7 @@
     {
         "id":3,
         "sort_weight":2,
-        "category": "word",
+        "category": "abbreviation",
         "standard_name":"简称",
         "words":[
             "英文对照",
@@ -67,7 +55,7 @@
     {
         "id":4,
         "sort_weight":3,
-        "category": "number",
+        "category": "result",
         "standard_name":"结果",
         "words":[
             "结果",
@@ -88,7 +76,7 @@
     {
         "id":5,
         "sort_weight":3,
-        "category": "sign",
+        "category": "other",
         "standard_name":"提示",
         "words":[
             "标志",
@@ -139,7 +127,7 @@
     {
         "id":8,
         "sort_weight":4,
-        "category": "word",
+        "category": "other",
         "standard_name":"检验方法",
         "words":[
             "方法学",

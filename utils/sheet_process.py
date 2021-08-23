@@ -1,5 +1,5 @@
 # coding=utf-8
-from utils.config import get_sort_weight
+from utils.head_cfg import get_sort_weight
 from utils.xlsx import write_excel_xlsx
 
 __all__ = ["parse_sheet_to_excel"]
@@ -63,11 +63,11 @@ def parse_sheet_data(heads, body_lines):
         content, i = [[], []], 0
         for meta in line:
             attrs = meta["attrs"] if "attrs" in meta else []
-            for attr in attrs:
+            for attr_idx, attr in enumerate(attrs):
                 while idx < len(merged_heads):
                     idx += 1
                     if attr == merged_heads[idx-1]:
-                        content[i].append(meta["text"])
+                        content[i].append(meta["corrected"][attr_idx])
                         break
                     else:
                         content[i].append("")

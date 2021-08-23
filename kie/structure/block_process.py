@@ -8,7 +8,8 @@ from scipy import optimize, stats
 from utils.nlp import jieba_seg
 from utils.u_str import calc_valid_char, str_len
 from utils.sheet_process import parse_sheet_to_excel
-from utils.config import is_cfg_head_word, is_cfg_key_word
+from utils.head_cfg import is_cfg_head_word, is_cfg_key_word, get_category
+from kie.corrector.correct import single_correct, multi_correct
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont
 
@@ -757,4 +758,24 @@ def split_vertical_lines(lines, head_line, head_box_dict):
                 top_meta["attrs"].append(head_meta["text"])
             else:
                 top_meta["attrs"] = [head_meta["text"]]
+    split_and_correct(lines)
     return csv_head_words
+
+
+def split_and_correct(lines):
+    for line in lines:
+        for meta in line:
+            if "attrs" not in meta:
+                continue
+            source = meta["text"]
+            attrs = meta["attrs"]
+            categories = [get_category(attr) for attr in attrs]
+            if len(categories) == 1:
+                # correct single field
+                res, _, _ = single_correct(source, category=categories[0])
+                meta["corrected"] = [res]
+            else:
+                # correct multi field
+                res = multi_correct(source, categories)
+                meta["corrected"] = res
+    return

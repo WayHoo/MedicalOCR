@@ -5,7 +5,7 @@ GitHub: https://github.com/znwang25/fuzzychinese
 import os
 import logging
 import pandas as pd
-from fuzzychinese import FuzzyChineseMatch
+from fuzzychinese import FuzzyChineseMatch, Stroke
 default_logger = logging.getLogger(__name__)
 
 
@@ -53,3 +53,7 @@ if __name__ == "__main__":
                  "口嗜碱性粒细胞", "白细胞", "中形粒细胞数"]
     candi = fc.get_top_candidates(raw_words, 1)
     print(candi)
+    stroke = Stroke()
+    print("白", stroke.get_stroke("白"))
+    print("细", stroke.get_stroke("细"))
+    print("胞", stroke.get_stroke("胞"))

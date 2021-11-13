@@ -35,7 +35,7 @@ def single_correct(source, category="item", threshold=0.7):
         unit, span = match(source, category)
         if unit is not None:
             return unit, span, None
-        return source, (0, len(source)), None
+        return source, None, None
     elif category == "result" or category == "range":
         # 结果和范围中可能包含单位，先正则匹配出单位
         unit, span = match(source, "unit")
@@ -58,9 +58,9 @@ def single_correct(source, category="item", threshold=0.7):
             if ret is not None:
                 return ret, sub_span, None
             else:
-                return source, (0, len(source)), None
+                return source, None, None
     elif category == "other":
-        return source, (0, len(source)), None
+        return source, None, None
 
 
 def multi_correct(source, categories, threshold=0.7):
@@ -74,13 +74,12 @@ def multi_correct(source, categories, threshold=0.7):
     assert isinstance(source, str), "the param source must be type of str."
     assert isinstance(categories, list), "the param categories must be type of list."
 
-    source = source.replace(" ", "")
     if len(categories) == 0:
         return []
     if len(categories) == 1:
         res, _, _ = single_correct(source, categories[0], threshold)
         return [res]
-    ret = [source]*len(categories)
+    # 之所以采用递归方式，是为了按照如下的if-else定义的优先级进行纠错
     idx, category = 0, ""
     if "unit" in categories:
         idx = categories.index("unit")
@@ -95,17 +94,16 @@ def multi_correct(source, categories, threshold=0.7):
         idx = categories.index("result")
         category = "result"
 
-    if category != "":
-        res, span, _ = single_correct(source, category, threshold)
-        ret = [res]
-        l_categories = categories[:idx]
-        r_categories = categories[idx + 1:]
-        if len(res) == len(source):
-            left, right = source, source
-        else:
-            left, right = source[:span[0]], source[span[1]:]
-        ret = multi_correct(left, l_categories, threshold) + ret
-        ret += multi_correct(right, r_categories, threshold)
+    res, span, _ = single_correct(source, category, threshold)
+    ret = [res]
+    l_categories = categories[:idx]
+    r_categories = categories[idx+1:]
+    if span is None:
+        left, right = source, source
+    else:
+        left, right = source[:span[0]], source[span[1]:]
+    ret = multi_correct(left, l_categories, threshold) + ret
+    ret += multi_correct(right, r_categories, threshold)
     return ret
 
 
@@ -189,7 +187,8 @@ if __name__ == "__main__":
     for result in results:
         res = single_correct(result, "result")
         print("result correct: [%s] -> %s" % (result, res))
-    multis = [("总二氧化碳（TCO2）", ["item", "abbreviation"]),
+    multis = [("钾离子（K）", ["item", "abbreviation"]),
+              ("4总二氧化碳（TCO2）", ["item", "abbreviation"]),
               ("RDW-SD红细胞平均宽度", ["abbreviation", "item"]),
               ("乙肝表面抗原>250.00IU/mL", ["item", "result", "unit"]),
               ("乙肝病毒e抗原1226.86t", ["item", "result"]),

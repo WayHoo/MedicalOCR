@@ -67,6 +67,11 @@ def parse_args():
     parser.add_argument("--enable_mkldnn", type=str2bool, default=False)
     parser.add_argument("--use_pdserving", type=str2bool, default=False)
 
+    # params for table recognizer
+    parser.add_argument("--sub_table_thresh", type=float, default=0.5)  # 化验单栏数判断阈值
+    parser.add_argument("--head_word_seg_thresh", type=float, default=0.75)  # 化验单表头文本框分词阈值
+    parser.add_argument("--horizon_line_split_thresh", type=float, default=0.6)  # 行切割阈值
+
     return parser.parse_args()
 
 

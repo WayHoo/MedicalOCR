@@ -45,7 +45,7 @@ def get_category(word):
     """
     if word in GL_HEAD_WORDS:
         return GL_HEAD_WORDS[word][2]
-    return ""
+    return "other"
 
 
 def is_cfg_key_word(word):

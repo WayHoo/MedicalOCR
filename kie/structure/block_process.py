@@ -69,6 +69,7 @@ def extract_test_sheet(img, args, file_name, dt_boxes, rec_res):
         text, score = rec_res[i]
         box = dt_boxes[i]
         box_key = get_box_key(box)
+        # print(text, box)
         # ---------------------jieba_seg begin-----------------------
         words = jieba_seg(text)
         meta = {'text': text, 'score': score, 'box': box, "seg_words": words}
@@ -130,19 +131,6 @@ def extract_test_sheet(img, args, file_name, dt_boxes, rec_res):
         sheet_name = "化验单"+str(i+1) if len(tables) > 1 else "化验单"
         parse_sheet_to_excel(csv_head_words, lines, file_name, args.save_path, sheet_name)
     return
-
-
-def get_middle_point(box):
-    """
-    获取四边形中心点坐标
-    :param box: 文本框
-    :return: 坐标
-    """
-    x, y = 0.0, 0.0
-    for point in box:
-        x += point[0]
-        y += point[1]
-    return x/4.0, y/4.0
 
 
 def calc_point_to_line_dis(k, b, x, y):

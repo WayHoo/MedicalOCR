@@ -6,7 +6,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
-os.environ["CUDA_VISIBLE_DEVICES"] = "8"
+os.environ["CUDA_VISIBLE_DEVICES"] = "9"
 
 import cv2
 import copy
@@ -18,6 +18,7 @@ import ppocr.infer.predict_rec as predict_rec
 import ppocr.infer.predict_det as predict_det
 import ppocr.infer.predict_cls as predict_cls
 import ppocr.infer.predict_agl as predict_agl
+import kie.structure.table_rec as table_rec
 from ppocr.utils.utility import get_image_file_list, check_and_read_gif
 from ppocr.utils.logging import get_logger
 from ppocr.infer.utility import draw_ocr_box_txt
@@ -166,7 +167,10 @@ def main(args):
             # print('dt_boxes=%s' % dt_boxes)
             # calc_block_angle(dt_boxes, rec_res)
             # post_process_img = block_seg(img, dt_boxes)
-            extract_test_sheet(img, args, os.path.basename(image_file).split(".")[0], dt_boxes, rec_res)
+            img_name = os.path.basename(image_file).split(".")[0]
+            # extract_test_sheet(img, args, img_name, dt_boxes, rec_res)
+            table_rec.TableRecognizer(args, img, img_name, dt_boxes, rec_res)()
+
 
             # out = []
             # import json

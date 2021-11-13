@@ -6,6 +6,7 @@ import os
 import logging
 import pandas as pd
 from fuzzychinese import FuzzyChineseMatch, Stroke
+from sklearn.feature_extraction.text import TfidfVectorizer
 default_logger = logging.getLogger(__name__)
 
 
@@ -49,11 +50,25 @@ class FuzzyCorrector(object):
 
 if __name__ == "__main__":
     fc = FuzzyCorrector()
-    raw_words = ["申该细胞绝对值", "林巴细胞数", "载脂蛋白A", "钾",
+    raw_words = ["申该细胞绝对值", "林巴细胞数", "载脂蛋白", "钾",
                  "口嗜碱性粒细胞", "白细胞", "中形粒细胞数"]
     candi = fc.get_top_candidates(raw_words, 1)
     print(candi)
     stroke = Stroke()
-    print("白", stroke.get_stroke("白"))
-    print("细", stroke.get_stroke("细"))
-    print("胞", stroke.get_stroke("胞"))
+    print("载：", stroke.get_stroke("载"))
+    print("脂：", stroke.get_stroke("脂"))
+    print("蛋：", stroke.get_stroke("蛋"))
+    print("白：", stroke.get_stroke("白"))
+    tfidf2 = TfidfVectorizer()
+    strokes = []
+    for word in raw_words:
+        tmp = ""
+        for ch in word:
+            tmp += stroke.get_stroke(ch)
+        strokes.append(tmp)
+    re = tfidf2.fit_transform(strokes)
+    print("笔划：", strokes)
+    print("关键词：", tfidf2.get_feature_names())
+    matrix = re.toarray()
+    print("词频矩阵：", matrix)
+    print(re)

@@ -13,3 +13,4 @@ jieba
 openpyxl
 fuzzychinese
 sklearn
+Django==3.2

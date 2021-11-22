@@ -42,7 +42,7 @@ class TableRecognizer(object):
         end = time.time()
         logger.info("jieba process elapse: {}".format(end-begin))
 
-    def __call__(self):
+    def __call__(self, save=True):
         # 获取处于同一行的表头文本框列表，可能有多行，[[box_key, ...], ...]
         lines = self.get_same_line_head_boxes()
         line_f_1_list = []  # 表头直线方程列表
@@ -59,6 +59,7 @@ class TableRecognizer(object):
             table_cnt_dict[line_key] = sub_table_cnt
         # 将化验单中的所有非表头水平文本框归类，归类依据是属于哪一条表头直线下方
         tables = self.table_classify(line_f_1_list)
+        sheets = []  # excel 表格内容，可能包含多个表格
         for i, table in enumerate(tables):
             k, b = table["f_1"]
             box_keys = table["box_keys"]
@@ -74,8 +75,9 @@ class TableRecognizer(object):
                     print("text=%s, corrected=%s, attrs=%s, seg_words=%s, score=%.2f" % (
                         text_box.text, text_box.corrected, text_box.head_attrs, text_box.seg_words, text_box.score))
             sheet_name = "化验单" + str(i+1) if len(tables) > 1 else "化验单"
-            self.parse_sheet_to_excel(head_line_dict[line_key], horizon_lines, sheet_name)
-        return
+            sheet = self.parse_sheet_to_excel(head_line_dict[line_key], horizon_lines, sheet_name, save)
+            sheets.append(sheet)
+        return sheets
 
     def get_same_line_head_boxes(self):
         """
@@ -416,7 +418,7 @@ class TableRecognizer(object):
             boxes.append({"head_word": head_words[i-1], "box": box})
         return boxes
 
-    def parse_sheet_to_excel(self, head_box_keys, body_lines, sheet_name="化验单"):
+    def parse_sheet_to_excel(self, head_box_keys, body_lines, sheet_name="化验单", save=True):
         if len(head_box_keys) == 0 or len(body_lines) == 0:
             logger.info("illegal params to write_excel_sheet!!!")
             return
@@ -435,7 +437,9 @@ class TableRecognizer(object):
                 for idx, col in enumerate(columns):
                     body_data[col-1] = corrected[idx]
             data.append(body_data)
-        write_excel_xlsx(self.args.save_path, self.img_name, sheet_name, data)
+        if save:
+            write_excel_xlsx(self.args.save_path, self.img_name, sheet_name, data)
+        return data
 
 
 class TextBox(object):

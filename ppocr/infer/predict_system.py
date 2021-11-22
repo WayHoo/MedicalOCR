@@ -6,7 +6,7 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../..')))
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
-os.environ["CUDA_VISIBLE_DEVICES"] = "9"
+os.environ["CUDA_VISIBLE_DEVICES"] = "8"
 
 import cv2
 import copy

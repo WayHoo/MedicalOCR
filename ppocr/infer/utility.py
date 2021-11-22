@@ -75,6 +75,67 @@ def parse_args():
     return parser.parse_args()
 
 
+class Args(object):
+    def __init__(self):
+        # params for prediction engine
+        self.use_gpu = True
+        self.ir_optim = True
+        self.use_tensorrt = False
+        self.use_fp16 = False
+        self.gpu_mem = 1000
+
+        # params for text detector
+        self.det_algorithm = 'DB'
+        self.det_model_dir = './inference/ch_ppocr_server_v2.0_det_infer/'
+        self.det_limit_side_len = 960
+        self.det_limit_type = 'max'
+
+        # DB parmas
+        self.det_db_thresh = 0.3
+        self.det_db_box_thresh = 0.5
+        self.det_db_unclip_ratio = 1.6
+        self.max_batch_size = 10
+        self.use_dilation = False
+
+        # params for text recognizer
+        self.rec_algorithm = 'CRNN'
+        self.rec_model_dir = './inference/ch_ppocr_server_v2.0_rec_infer/'
+        self.rec_image_shape = "3, 32, 320"
+        self.rec_char_type = 'ch'
+        self.rec_batch_num = 6
+        self.max_text_length = 25
+        self.rec_char_dict_path = "./ppocr/utils/ppocr_keys_v1.txt"
+        self.use_space_char = True
+        self.vis_font_path = "./doc/fonts/simfang.ttf"
+        self.drop_score = 0.5
+
+        # params for text classifier
+        self.use_angle_cls = True
+        self.cls_model_dir = './inference/ch_ppocr_mobile_v2.0_cls_infer/'
+        self.cls_image_shape = "3, 48, 192"
+        self.label_list = ['0', '180']
+        self.cls_batch_num = 6
+        self.cls_thresh = 0.9
+
+        # params for angle detector
+        self.use_angle_det = True
+        self.agl_det_model_dir = './inference/angle_det/'
+        self.use_size_adjust = False
+        self.adjust_thresh = 0.05
+
+        # params for table recognizer
+        self.sub_table_thresh = 0.5
+        self.head_word_seg_thresh = 0.75
+        self.horizon_line_split_thresh = 0.6
+
+        self.enable_mkldnn = False
+        self.use_pdserving = False
+
+
+def server_parse_args():
+    return Args()
+
+
 def create_predictor(args, mode, logger):
     if mode == "det":
         model_dir = args.det_model_dir
